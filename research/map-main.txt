@@ -1,0 +1,167 @@
+FUNCTION 18a7940-18a7c60 unwind=257c2f0
+018a7940 mov      qword ptr [rsp + 8], rbx
+018a7945 mov      qword ptr [rsp + 0x10], rbp
+018a794a mov      qword ptr [rsp + 0x18], rsi
+018a794f push     rdi
+018a7950 push     r14
+018a7952 push     r15
+018a7954 sub      rsp, 0x20
+018a7958 mov      r15d, 0x1f
+018a795e lea      rsi, [rcx + 0x4ece4]
+018a7965 mov      ebx, r15d
+018a7968 lea      rbp, [rcx + 0x4eb08]
+018a796f mov      rdi, rcx
+018a7972 xor      r14d, r14d
+018a7975 mov      rcx, rbp
+018a7978 call     0x144dd70
+018a797d sub      rbp, 0x160
+018a7984 mov      dword ptr [rsi], r14d
+018a7987 sub      ebx, 1
+018a798a lea      rsi, [rsi - 4]
+018a798e jns      0x18a7975
+018a7990 mov      ebx, 0x31
+018a7995 lea      rsi, [rdi + 0x63478]
+018a799c nop      dword ptr [rax]
+018a79a0 mov      rcx, rsi
+018a79a3 call     0x144dd70
+018a79a8 sub      rsi, 0x158
+018a79af sub      ebx, 1
+018a79b2 jns      0x18a79a0
+018a79b4 mov      ebx, 0x1ff
+018a79b9 lea      rsi, [rdi + 0x466e0]
+018a79c0 mov      rcx, rsi
+018a79c3 call     0x144dd70
+018a79c8 sub      rsi, 0x158
+018a79cf sub      ebx, 1
+018a79d2 jns      0x18a79c0
+018a79d4 mov      ebx, 0x3f
+018a79d9 lea      rsi, [rdi + 0x4bdf8]
+018a79e0 mov      rcx, rsi
+018a79e3 call     0x144dd70
+018a79e8 sub      rsi, 0x158
+018a79ef sub      ebx, 1
+018a79f2 jns      0x18a79e0
+018a79f4 mov      r14d, 7
+018a79fa lea      rsi, [rdi + 0x19e98]
+018a7a01 mov      ebx, r14d
+018a7a04 mov      rcx, rsi
+018a7a07 call     0x144dd70
+018a7a0c sub      rsi, 0x160
+018a7a13 sub      ebx, 1
+018a7a16 jns      0x18a7a04
+018a7a18 mov      ebp, 0xf
+018a7a1d lea      rsi, [rdi + 0x1b5b0]
+018a7a24 mov      ebx, ebp
+018a7a26 mov      rcx, rsi
+018a7a29 call     0x144dd70
+018a7a2e sub      rsi, 0x160
+018a7a35 sub      ebx, 1
+018a7a38 jns      0x18a7a26
+018a7a3a mov      ebx, r15d
+018a7a3d lea      rsi, [rdi + 0x18b00]
+018a7a44 mov      rcx, rsi
+018a7a47 call     0x144dd70
+018a7a4c sub      rsi, 0x160
+018a7a53 sub      ebx, 1
+018a7a56 jns      0x18a7a44
+018a7a58 lea      rbx, [rdi + 0x15de8]
+018a7a5f nop      
+018a7a60 lea      rcx, [rbx - 0x158]
+018a7a67 call     0x144dd70
+018a7a6c mov      rcx, rbx
+018a7a6f call     0x144dd70
+018a7a74 sub      rbx, 0x2b8
+018a7a7b sub      r14d, 1
+018a7a7f jns      0x18a7a60
+018a7a81 lea      rbx, [rdi + 0x518a0]
+018a7a88 mov      rcx, rbx
+018a7a8b call     0x144dd70
+018a7a90 sub      rbx, 0x160
+018a7a97 sub      r15d, 1
+018a7a9b jns      0x18a7a88
+018a7a9d mov      esi, ebp
+018a7a9f lea      rbx, [rdi + 0x12378]
+018a7aa6 nop      word ptr [rax + rax]
+018a7ab0 lea      rcx, [rbx - 0x158]
+018a7ab7 call     0x144dd70
+018a7abc mov      rcx, rbx
+018a7abf call     0x144dd70
+018a7ac4 sub      rbx, 0x2b8
+018a7acb sub      esi, 1
+018a7ace jns      0x18a7ab0
+018a7ad0 mov      ebx, 9
+018a7ad5 lea      rsi, [rdi + 0x13130]
+018a7adc nop      dword ptr [rax]
+018a7ae0 mov      rcx, rsi
+018a7ae3 call     0x144dd70
+018a7ae8 sub      rsi, 0x158
+018a7aef sub      ebx, 1
+018a7af2 jns      0x18a7ae0
+018a7af4 lea      rbx, [rdi + 0x146d8]
+018a7afb nop      dword ptr [rax + rax]
+018a7b00 mov      rcx, rbx
+018a7b03 call     0x144dd70
+018a7b08 sub      rbx, 0x158
+018a7b0f sub      ebp, 1
+018a7b12 jns      0x18a7b00
+018a7b14 mov      esi, 4
+018a7b19 lea      rbx, [rdi + 0x4ad0]
+018a7b20 lea      rcx, [rbx - 0x480]
+018a7b27 call     0x144dd70
+018a7b2c mov      rcx, rbx
+018a7b2f call     0x144dd70
+018a7b34 sub      rbx, 0x5e0
+018a7b3b sub      esi, 1
+018a7b3e jns      0x18a7b20
+018a7b40 mov      ebx, 0x7f
+018a7b45 lea      rsi, [rdi + 0xf6d8]
+018a7b4c nop      dword ptr [rax]
+018a7b50 mov      rcx, rsi
+018a7b53 call     0x144dd70
+018a7b58 sub      rsi, 0x158
+018a7b5f sub      ebx, 1
+018a7b62 jns      0x18a7b50
+018a7b64 lea      rcx, [rdi + 0x5e998]
+018a7b6b call     0x144dd70
+018a7b70 lea      rcx, [rdi + 0x5dc40]
+018a7b77 call     0x144dd70
+018a7b7c lea      rcx, [rdi + 0x5d9d8]
+018a7b83 call     0x144dd70
+018a7b88 mov      dword ptr [rdi + 0xf830], 0
+018a7b92 lea      rcx, [rdi + 0x2028]
+018a7b99 mov      byte ptr [rdi + 0xf834], 0
+018a7ba0 call     0x144dd70
+018a7ba5 lea      rcx, [rdi + 0x1770]
+018a7bac call     0x144dd70
+018a7bb1 lea      rcx, [rdi + 0xeb8]
+018a7bb8 call     0x144dd70
+018a7bbd lea      rcx, [rdi + 0x600]
+018a7bc4 call     0x144dd70
+018a7bc9 mov      rcx, rdi
+018a7bcc call     0x144dd70
+018a7bd1 mov      edx, dword ptr [rdi + 0x5f27c]
+018a7bd7 cmp      edx, -1
+018a7bda je       0x18a7c12
+018a7bdc mov      rax, qword ptr [rip + 0x1a7e725]
+018a7be3 mov      rcx, qword ptr [rip + 0x1bd52a6]
+018a7bea mov      r9, qword ptr [rax + 0xd0]
+018a7bf1 movzx    eax, byte ptr [rdi + 0x110]
+018a7bf8 imul     r8, rax, 0x3698
+018a7bff mov      rcx, qword ptr [r8 + rcx + 8]
+018a7c04 call     qword ptr [r9 + 0x58]
+018a7c08 mov      dword ptr [rdi + 0x5f27c], 0xffffffff
+018a7c12 mov      rax, qword ptr [rip + 0x1a7e6ef]
+018a7c19 mov      rcx, qword ptr [rip + 0x1bd5270]
+018a7c20 mov      rdx, qword ptr [rdi + 0x5f280]
+018a7c27 mov      r9, qword ptr [rax + 0xd0]
+018a7c2e movzx    eax, byte ptr [rdi + 0x110]
+018a7c35 imul     r8, rax, 0x3698
+018a7c3c mov      rcx, qword ptr [r8 + rcx + 8]
+018a7c41 mov      rbx, qword ptr [rsp + 0x40]
+018a7c46 mov      rbp, qword ptr [rsp + 0x48]
+018a7c4b mov      rsi, qword ptr [rsp + 0x50]
+018a7c50 add      rsp, 0x20
+018a7c54 pop      r15
+018a7c56 pop      r14
+018a7c58 pop      rdi
+018a7c59 jmp      qword ptr [r9 + 0x248]

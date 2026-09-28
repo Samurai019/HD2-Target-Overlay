@@ -1,0 +1,38 @@
+Fog probe 0.1; 2026-09-27 16:30:28
+screen=3840,2160
+main_world=[World]
+overlay_world=nil
+last_render_world=nil
+lua_render_order=
+columns: white=100 magenta=16381 cyan=30000; rows=world inventory index
+inside=map center ladder; outside=bottom-left screen ladder; all alpha255
+view.origin_x=-9.4704627990722656
+view.scale=1.7641129493713379
+view.cx=3344
+view.icon_scale=2
+view.container_y=80
+view.pan_y=-35.977615356445312
+view.cy=528
+view.container_x=2896
+view.xx=2
+view.pan_x=-9.470458984375
+view.xy=0
+view.yx=0
+view.origin_y=-35.977622985839844
+view.yy=2
+view.tx=3344
+view.radius=447
+view.ty=528
+world.1=[World]
+world.2=[World]
+world.3=[World]
+world.4=[World]
+world.5=[World]
+world.6=[World]
+world.7=[World]
+update_source=@mods/astla/target_overlay.lua:744
+render_source=@mods/astla/target_overlay.lua:597
+capture.presenter.bin=presenter+0x120 length=200
+capture.container.bin=presenter+0x4bf50 length=160
+capture.map_mode.bin=presenter+0x636a0 length=32
+capture.fog_flags.bin=presenter+0x64660 length=32

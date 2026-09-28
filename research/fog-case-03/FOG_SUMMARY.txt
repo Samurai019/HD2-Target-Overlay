@@ -1,0 +1,47 @@
+Fog probe 0.3; 2026-09-27 16:50:50
+screen=3840,2160
+main_world=[World]
+overlay_world=[World]
+last_render_world=nil
+lua_render_order=
+columns: -16381,0,100,401,403,16381; colors repeat white,magenta,cyan; rows=world index
+inside=map center ladder; outside=bottom-left screen ladder; all alpha255
+view.origin_x=290.65008544921875
+view.scale=0.56089746952056885
+view.cx=3344
+view.icon_scale=2
+view.container_y=80
+view.pan_y=-71.033203125
+view.cy=528
+view.container_x=2896
+view.xx=2
+view.pan_x=290.65008544921875
+view.xy=0
+view.yx=0
+view.origin_y=-71.033203125
+view.yy=2
+view.tx=3344
+view.radius=447
+view.ty=528
+world.1=[World]
+world.2=[World]
+world.3=[World]
+world.4=[World]
+world.5=[World]
+world.6=[World]
+world.7=[World]
+update_source=@mods/astla/target_overlay.lua:799
+render_source=@mods/astla/target_overlay.lua:652
+capture.presenter.bin=presenter+0x120 length=200
+capture.container.bin=presenter+0x4bf50 length=160
+capture.map_mode.bin=presenter+0x636a0 length=32
+capture.fog_flags.bin=presenter+0x64660 length=32
+native.spore_bitmap=kind:3 bucket:6 order:402 flags:0xc00c1053
+native.spore_bitmap.material=captured256
+native.spore_parent=kind:1 bucket:6 order:402 flags:0xc0045019
+native.map_bitmap=kind:3 bucket:6 order:510 flags:0xc00c1053
+native.map_bitmap.material=captured256
+native.map_container=kind:1 bucket:6 order:403 flags:0xc0041019
+backend.rect.address=0x7ff75feaf2d0
+backend.bitmap_create.address=0x7ff75feaf820
+backend.bitmap_update.address=0x7ff75feaf9e0

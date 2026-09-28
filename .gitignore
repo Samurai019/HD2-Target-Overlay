@@ -1,0 +1,19 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+
+# Local third-party checkouts and extracted installed mods
+/research/filediver/
+/research/ModOptionsMenu/
+/research/installed_lua/
+
+# Game memory captures and binary research data
+/research/runtime/
+/research/**/*.bin
+
+# Local gameplay screenshots
+/research/fog-case-*/screenshot.png

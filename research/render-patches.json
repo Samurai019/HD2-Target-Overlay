@@ -1,0 +1,37 @@
+[
+  {
+    "name": "poi_visible",
+    "rva": 25921193,
+    "offset": 12,
+    "original": "41807cff0100750b41803cff000f8428040000f3410f109548010000498b4424380f28da8b4c24400f28e2f3440f1045",
+    "replacement": 255
+  },
+  {
+    "name": "poi_original_icon",
+    "rva": 25921443,
+    "offset": 11,
+    "original": "eeb8ff488b5c2468803cfb000f8406020000488b5580f30f104cfb04f30f1054fb08807a2000743ff3410f1085480100",
+    "replacement": 255
+  },
+  {
+    "name": "poi_opacity",
+    "rva": 25921778,
+    "offset": 11,
+    "original": "e8b8ff488b442470803cc3000f85a2010000488b4580807829000f84ef010000f3440f5c45b8f30f104590f3410f5cff",
+    "replacement": 255
+  },
+  {
+    "name": "objective_icon_path",
+    "rva": 25904826,
+    "offset": 13,
+    "original": "c6842e0cfc00000042837c024401f30f58cbf30f59c2f30f114d20f30f58c4f30f1145244c8b75204c8975304c897424",
+    "replacement": 255
+  },
+  {
+    "name": "objective_detail_icon",
+    "rva": 25907290,
+    "offset": 12,
+    "original": "488b4588488b4d90807c0840007525488b442460498bfd488b4dc88b84012801000085c0746983bda400000000750583",
+    "replacement": 255
+  }
+]

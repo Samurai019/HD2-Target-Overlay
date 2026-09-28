@@ -1,0 +1,1 @@
+No Lua render_world calls observed; using world inventory fallback

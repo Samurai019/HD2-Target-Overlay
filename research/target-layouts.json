@@ -1,0 +1,500 @@
+{
+  "ShowOnMapComponentData": {
+    "hash": "27b7e509",
+    "size": 2080,
+    "members": [
+      {
+        "name": "0xb10db",
+        "offset": 0,
+        "size": 832,
+        "type_hash": "fcdfc705",
+        "atom": 2,
+        "storage": 20,
+        "bits": 52
+      },
+      {
+        "name": "0xb10e3",
+        "offset": 832,
+        "size": 1248,
+        "type_hash": "9433e54f",
+        "atom": 2,
+        "storage": 20,
+        "bits": 26
+      }
+    ]
+  },
+  "ShowOnMapComponent": {
+    "hash": "9433e54f",
+    "size": 48,
+    "members": [
+      {
+        "name": "0x832dc",
+        "offset": 0,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x83313",
+        "offset": 1,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x8337e",
+        "offset": 8,
+        "size": 8,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 7,
+        "bits": 0
+      },
+      {
+        "name": "0x833b0",
+        "offset": 16,
+        "size": 8,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 7,
+        "bits": 0
+      },
+      {
+        "name": "0x83424",
+        "offset": 24,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 8,
+        "bits": 0
+      },
+      {
+        "name": "0x83438",
+        "offset": 28,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 8,
+        "bits": 0
+      },
+      {
+        "name": "0x8344c",
+        "offset": 32,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x834a2",
+        "offset": 36,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 6,
+        "bits": 0
+      },
+      {
+        "name": "0x834f0",
+        "offset": 40,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x8355d",
+        "offset": 41,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x835af",
+        "offset": 42,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x83626",
+        "offset": 43,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      }
+    ]
+  },
+  "ObjectiveComponentData": {
+    "hash": "44596528",
+    "size": 607600,
+    "members": [
+      {
+        "name": "0xb0a95",
+        "offset": 0,
+        "size": 6944,
+        "type_hash": "fcdfc705",
+        "atom": 2,
+        "storage": 20,
+        "bits": 434
+      },
+      {
+        "name": "0xb0a9d",
+        "offset": 6944,
+        "size": 600656,
+        "type_hash": "4eb42dee",
+        "atom": 2,
+        "storage": 20,
+        "bits": 217
+      }
+    ]
+  },
+  "ObjectiveComponent": {
+    "hash": "4eb42dee",
+    "size": 2768,
+    "members": [
+      {
+        "name": "0x7d381",
+        "offset": 0,
+        "size": 64,
+        "type_hash": "91fd95a3",
+        "atom": 2,
+        "storage": 20,
+        "bits": 4
+      },
+      {
+        "name": "0x7d3de",
+        "offset": 64,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 8,
+        "bits": 0
+      },
+      {
+        "name": "0x7d4ac",
+        "offset": 68,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 8,
+        "bits": 0
+      },
+      {
+        "name": "0x7d4fb",
+        "offset": 72,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7d562",
+        "offset": 80,
+        "size": 2304,
+        "type_hash": "467b62af",
+        "atom": 2,
+        "storage": 20,
+        "bits": 8
+      },
+      {
+        "name": "0x7d579",
+        "offset": 2384,
+        "size": 64,
+        "type_hash": "457d3c45",
+        "atom": 2,
+        "storage": 20,
+        "bits": 8
+      },
+      {
+        "name": "0x7d590",
+        "offset": 2448,
+        "size": 4,
+        "type_hash": "42a787e1",
+        "atom": 0,
+        "storage": 12,
+        "bits": 0
+      },
+      {
+        "name": "0x7d5e5",
+        "offset": 2456,
+        "size": 192,
+        "type_hash": "5872361d",
+        "atom": 2,
+        "storage": 20,
+        "bits": 8
+      },
+      {
+        "name": "0x7d63a",
+        "offset": 2648,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 2,
+        "bits": 0
+      },
+      {
+        "name": "0x7d6a7",
+        "offset": 2652,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7d6e1",
+        "offset": 2656,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 8,
+        "bits": 0
+      },
+      {
+        "name": "0x7d730",
+        "offset": 2660,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7d7e0",
+        "offset": 2664,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 2,
+        "bits": 0
+      },
+      {
+        "name": "0x7d80e",
+        "offset": 2668,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 6,
+        "bits": 0
+      },
+      {
+        "name": "0x7d882",
+        "offset": 2672,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 6,
+        "bits": 0
+      },
+      {
+        "name": "0x7d8a5",
+        "offset": 2676,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 6,
+        "bits": 0
+      },
+      {
+        "name": "0x7d90d",
+        "offset": 2680,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 8,
+        "bits": 0
+      },
+      {
+        "name": "0x7d96f",
+        "offset": 2684,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 8,
+        "bits": 0
+      },
+      {
+        "name": "0x7d99b",
+        "offset": 2688,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 6,
+        "bits": 0
+      },
+      {
+        "name": "0x7da19",
+        "offset": 2692,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7daa2",
+        "offset": 2693,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7dae7",
+        "offset": 2694,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7db46",
+        "offset": 2696,
+        "size": 40,
+        "type_hash": "00000000",
+        "atom": 2,
+        "storage": 8,
+        "bits": 10
+      },
+      {
+        "name": "0x7dbb7",
+        "offset": 2736,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 6,
+        "bits": 0
+      },
+      {
+        "name": "0x7dc22",
+        "offset": 2740,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 8,
+        "bits": 0
+      },
+      {
+        "name": "0x7dca8",
+        "offset": 2744,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 8,
+        "bits": 0
+      },
+      {
+        "name": "0x7dd3a",
+        "offset": 2748,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7de0d",
+        "offset": 2749,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7de92",
+        "offset": 2750,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7df15",
+        "offset": 2752,
+        "size": 4,
+        "type_hash": "9272c6ef",
+        "atom": 0,
+        "storage": 12,
+        "bits": 0
+      },
+      {
+        "name": "0x7df39",
+        "offset": 2756,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7df7d",
+        "offset": 2757,
+        "size": 1,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 4,
+        "bits": 0
+      },
+      {
+        "name": "0x7dfbd",
+        "offset": 2760,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 6,
+        "bits": 0
+      },
+      {
+        "name": "0x7e02d",
+        "offset": 2764,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 6,
+        "bits": 0
+      }
+    ]
+  },
+  "ComponentIndexData": {
+    "hash": "fcdfc705",
+    "size": 16,
+    "members": [
+      {
+        "name": "0xafead",
+        "offset": 0,
+        "size": 8,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 7,
+        "bits": 0
+      },
+      {
+        "name": "0xafeb9",
+        "offset": 8,
+        "size": 4,
+        "type_hash": "00000000",
+        "atom": 0,
+        "storage": 6,
+        "bits": 0
+      }
+    ]
+  }
+}

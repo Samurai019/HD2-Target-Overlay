@@ -1,0 +1,1 @@
+F8 probe visible; F8 toggles off; close map clears samples

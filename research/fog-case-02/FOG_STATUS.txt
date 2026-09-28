@@ -1,0 +1,1 @@
+F8 probe off; all diagnostic GUIs removed

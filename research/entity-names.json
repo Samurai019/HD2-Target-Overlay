@@ -1,0 +1,586 @@
+[
+  {
+    "table": "ObjectiveComponentData",
+    "index": 0,
+    "hash": "0xdc8d38595e39e3a6",
+    "name": "content/entities/objective",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 204,
+    "hash": "0x606043cac59312ec",
+    "name": "content/objectives/obj_bugs/entities/bug_assassinate_chargers/bug_assassinate_chargers",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 205,
+    "hash": "0x441c1ca987bd0059",
+    "name": "content/objectives/obj_bugs/entities/bug_assassinate_commander/bug_assassinate_commander",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 207,
+    "hash": "0x6403797eb4e18638",
+    "name": "content/objectives/obj_bugs/entities/bug_assassinate_striders/bug_assassinate_striders",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 1,
+    "hash": "0x45f1af49e3c6d25e",
+    "name": "content/objectives/obj_bugs/entities/bug_central_core/bug_central_core",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 84,
+    "hash": "0xb51d693ef3b1f3a9",
+    "name": "content/objectives/obj_bugs/entities/bug_destroy_stalker_lair/bug_destroy_stalker_lair",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 85,
+    "hash": "0xf8c953e618ace978",
+    "name": "content/objectives/obj_bugs/entities/bug_destroy_stratagem_blocker/bug_destroy_stratagem_blocker",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 87,
+    "hash": "0x972816514b817be5",
+    "name": "content/objectives/obj_bugs/entities/bug_foggenerator/bug_foggenerator",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 93,
+    "hash": "0xb6b06c4b6ec3dcf9",
+    "name": "content/objectives/obj_bugs/entities/bug_kill/bug_kill",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 100,
+    "hash": "0xc9e402cb57f4efe0",
+    "name": "content/objectives/obj_bugs/entities/bug_purge_hatchery/bug_purge_hatchery",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 104,
+    "hash": "0x1c9d1066c4cc40bb",
+    "name": "content/objectives/obj_bugs/entities/bug_retrieve_larva/bug_retrieve_larva",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 105,
+    "hash": "0xa36f5938d78a0349",
+    "name": "content/objectives/obj_bugs/entities/bug_shrieker_nest/bug_shrieker_nest",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 5,
+    "hash": "0x271210083a29459f",
+    "name": "content/objectives/obj_bugs/entities/bug_tcs_01/bug_tcs_01",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 16,
+    "hash": "0x319388d1d8acb8f3",
+    "name": "content/objectives/obj_bugs/entities/bug_tcs_01/bug_tcs_01_terminal",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 6,
+    "hash": "0x4bac90c3b06a45d2",
+    "name": "content/objectives/obj_bugs/entities/bug_tcs_02/bug_tcs_02",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 106,
+    "hash": "0x178183c8c74c6eba",
+    "name": "content/objectives/obj_bugs/entities/bug_tcs_02_destroy_eggs/bug_tcs_02_destroy_eggs",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 4,
+    "hash": "0x807bce3d0564219b",
+    "name": "content/objectives/obj_bugs/raise_flag/deploy_flag_area_marker_bug_hive",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 5,
+    "hash": "0xbf908a82b8e787ac",
+    "name": "content/objectives/obj_bugs/tcs/tcs_support_damageable",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 17,
+    "hash": "0xc3d9b291bd97b935",
+    "name": "content/objectives/obj_bugs/tcs/tcs_support_damageable_02",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 112,
+    "hash": "0xce1306e16a1a0739",
+    "name": "content/objectives/obj_common/entities/gen_collect_data/gen_collect_data",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 210,
+    "hash": "0xf73574301f5e9abc",
+    "name": "content/objectives/obj_common/entities/gen_colony_relay/gen_colony_relay",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 113,
+    "hash": "0xe062c8055b4dce77",
+    "name": "content/objectives/obj_common/entities/gen_destroy_research_station/gen_destroy_research_station",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 17,
+    "hash": "0xbe2ea3d89166b3c7",
+    "name": "content/objectives/obj_common/entities/gen_evacuate_civilians/gen_evacuate_civilians",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 18,
+    "hash": "0x4923715619149543",
+    "name": "content/objectives/obj_common/entities/gen_extract_civilians/gen_extract_civilians",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 211,
+    "hash": "0xa99575eee4f0e719",
+    "name": "content/objectives/obj_common/entities/gen_find_escape_pod/gen_find_escape_pod",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 20,
+    "hash": "0xc1b02c012d32eedd",
+    "name": "content/objectives/obj_common/entities/gen_horde_collect/gen_horde_collect",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 116,
+    "hash": "0x9ea66520b8b82a57",
+    "name": "content/objectives/obj_common/entities/gen_icbm/gen_icbm",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 213,
+    "hash": "0x421157c11e97dda5",
+    "name": "content/objectives/obj_common/entities/gen_investigate_research_station/gen_investigate_research_station",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 119,
+    "hash": "0x844b077bea19a72d",
+    "name": "content/objectives/obj_common/entities/gen_military_uplink/gen_military_uplink",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 121,
+    "hash": "0x76d67f32e48fdf51",
+    "name": "content/objectives/obj_common/entities/gen_oil_pickup/gen_oil_pickup",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 120,
+    "hash": "0x5293b9a2d9398dde",
+    "name": "content/objectives/obj_common/entities/gen_oilpump/gen_oilpump",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 23,
+    "hash": "0x158e1e47c059b69",
+    "name": "content/objectives/obj_common/entities/gen_prospecting_drill/gen_prospecting_drill",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 124,
+    "hash": "0x6409a568ceb88b23",
+    "name": "content/objectives/obj_common/entities/gen_radar_station/gen_radar_station",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 125,
+    "hash": "0x3aade0806542af22",
+    "name": "content/objectives/obj_common/entities/gen_raise_flag/gen_raise_flag",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 126,
+    "hash": "0xecb5398588fc7c74",
+    "name": "content/objectives/obj_common/entities/gen_refueling_station/gen_refueling_station",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 127,
+    "hash": "0xb736612b9ec11c26",
+    "name": "content/objectives/obj_common/entities/gen_restore_power/gen_restore_power",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 128,
+    "hash": "0x570d1e0a855e8199",
+    "name": "content/objectives/obj_common/entities/gen_retrieve_codes/gen_retrieve_codes",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 130,
+    "hash": "0xd622224a7889ad79",
+    "name": "content/objectives/obj_common/entities/gen_seaf_gun/gen_seaf_gun",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 26,
+    "hash": "0x8a54e81febb2f1fd",
+    "name": "content/objectives/obj_common/entities/gen_seismic_probe/gen_seismic_probe",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 29,
+    "hash": "0xc54746ad0bf050bf",
+    "name": "content/objectives/obj_common/entities/gen_truth_transmitter/gen_truth_transmitter",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 215,
+    "hash": "0xdefdecdb7e95e2de",
+    "name": "content/objectives/obj_common/entities/gen_upload_data/gen_upload_data",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 9,
+    "hash": "0x43a2eda0fac0729f",
+    "name": "content/objectives/obj_common/entities/tut_intro_mission/deploy_flag_area_marker_tut_intro",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 33,
+    "hash": "0x59a0ce2762f49c7a",
+    "name": "content/objectives/obj_common/entities/tut_intro_mission/tut_intro_mission",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 10,
+    "hash": "0x24aca2b4d15d2e2f",
+    "name": "content/objectives/obj_common/power_station/power_generator",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 11,
+    "hash": "0xd5f7e2eeb4f7b67",
+    "name": "content/objectives/obj_common/raise_flag/deploy_flag_area_marker",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 12,
+    "hash": "0x4ffc322ca8f8ecf8",
+    "name": "content/objectives/obj_cyborgs/cyborg_raise_flag/deploy_flag_area_marker_bot_base",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 139,
+    "hash": "0x8c8237654ef77272",
+    "name": "content/objectives/obj_cyborgs/entities/cy_aa_emplacement/cy_aa_emplacement",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 141,
+    "hash": "0xf0c9b2d04a4a3e68",
+    "name": "content/objectives/obj_cyborgs/entities/cy_assassinate_devastator/cy_assassinate_devastator",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 142,
+    "hash": "0x84ea7cfc98b30ff8",
+    "name": "content/objectives/obj_cyborgs/entities/cy_assassinate_fabricator/cy_assassinate_fabricator",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 143,
+    "hash": "0xaff49e6571e77fb9",
+    "name": "content/objectives/obj_cyborgs/entities/cy_assassinate_lt/cy_assassinate_lt",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 145,
+    "hash": "0x27a6af7afad648ba",
+    "name": "content/objectives/obj_cyborgs/entities/cy_chemicals/cy_chemicals",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 151,
+    "hash": "0xccf0c855d4c5a9f1",
+    "name": "content/objectives/obj_cyborgs/entities/cy_destroy_airbase/cy_destroy_airbase",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 152,
+    "hash": "0xe85e6be1877b05af",
+    "name": "content/objectives/obj_cyborgs/entities/cy_destroy_ammo/cy_destroy_ammo",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 153,
+    "hash": "0x92abcca27674db9d",
+    "name": "content/objectives/obj_cyborgs/entities/cy_destroy_command_bunker/cy_destroy_command_bunker",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 154,
+    "hash": "0x9880780ea1ab7463",
+    "name": "content/objectives/obj_cyborgs/entities/cy_destroy_communication/cy_destroy_communication",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 155,
+    "hash": "0xd6f9c1d41d1e416a",
+    "name": "content/objectives/obj_cyborgs/entities/cy_destroy_control_tower/cy_destroy_control_tower",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 156,
+    "hash": "0xe6b3d18884b960d2",
+    "name": "content/objectives/obj_cyborgs/entities/cy_destroy_detector_tower/cy_destroy_detector_tower",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 157,
+    "hash": "0xa837fbf26af5dfe7",
+    "name": "content/objectives/obj_cyborgs/entities/cy_destroy_fuel/cy_destroy_fuel",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 158,
+    "hash": "0x7b343a7110bad388",
+    "name": "content/objectives/obj_cyborgs/entities/cy_destroy_gunship/cy_destroy_gunship",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 50,
+    "hash": "0xce2af8c2aaf1380",
+    "name": "content/objectives/obj_cyborgs/entities/cy_destroy_stratagem_blocker/cy_destroy_stratagem_blocker",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 13,
+    "hash": "0x459dd5eb8c68c63f",
+    "name": "content/objectives/obj_cyborgs/entities/cy_factory_world_access_point_icon/cy_factory_world_access_point_icon",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ShowOnMapComponentData",
+    "index": 14,
+    "hash": "0x3ce56937e0bd28bd",
+    "name": "content/objectives/obj_cyborgs/entities/cy_factory_world_gate_icon/cy_factory_world_gate_icon",
+    "findable": null,
+    "start": 0
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 167,
+    "hash": "0x43c1270c7b467d79",
+    "name": "content/objectives/obj_cyborgs/entities/cy_kill/cy_kill",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 168,
+    "hash": "0xa12293e3d75fb72a",
+    "name": "content/objectives/obj_cyborgs/entities/cy_mortar_emplacement/cy_mortar_emplacement",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 54,
+    "hash": "0x747fd11505196c41",
+    "name": "content/objectives/obj_cyborgs/entities/cy_neutralize_cannon/cy_neutralize_cannon",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 174,
+    "hash": "0x87d139e9d5ba2a27",
+    "name": "content/objectives/obj_cyborgs/entities/cy_orbital_cannon/cy_orbital_cannon",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 177,
+    "hash": "0xb93c9b7a24abc6b7",
+    "name": "content/objectives/obj_cyborgs/entities/cy_samsite/cy_samsite",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 178,
+    "hash": "0x7ae1c94d5140b8dc",
+    "name": "content/objectives/obj_cyborgs/entities/cy_shutdown_grinder/cy_shutdown_grinder",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 73,
+    "hash": "0x29171c54040b2ead",
+    "name": "content/objectives/obj_illuminate/entities/il_flesh_labs/il_flesh_labs",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 193,
+    "hash": "0x58d8b921f121a14f",
+    "name": "content/objectives/obj_illuminate/entities/il_investigate_crashed_harvester/il_investigate_crashed_harvester",
+    "findable": 1,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 198,
+    "hash": "0x8aeacb6809cb385c",
+    "name": "content/objectives/obj_illuminate/entities/il_raise_flag/il_raise_flag",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 200,
+    "hash": "0x71fe5184823ce5d0",
+    "name": "content/objectives/obj_illuminate/entities/il_retrieve_artifact/il_retrieve_artifact",
+    "findable": 0,
+    "start": null
+  },
+  {
+    "table": "ObjectiveComponentData",
+    "index": 202,
+    "hash": "0x6beddf9a0aff885",
+    "name": "content/objectives/obj_illuminate/entities/il_upload_data/il_upload_data",
+    "findable": 0,
+    "start": null
+  }
+]
