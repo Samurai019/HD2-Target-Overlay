@@ -28,7 +28,7 @@ mod 会校验游戏构建。游戏更新后若校验不符，覆盖层不会运�
 
 ## 安装
 
-1. 下载仓库中的 [Target-Overlay-1.1.1.zip](dist/Target-Overlay-1.1.1.zip)。
+1. 下载仓库中的 [Target-Overlay-1.1.1.zip](https://github.com/Samurai019/HD2-Target-Overlay/releases/download/v1.1.1/Target-Overlay-1.1.1.zip)。
 2. 退出游戏，使用 mod 管理器导入该 ZIP。
 3. 启用 Target Overlay 和 Bingus Shared Loader，部署后重新启动游戏。
 
