@@ -1,4 +1,6 @@
 local Core={}
+-- Exact entity resource, compared as bytes to avoid Lua's 64-bit precision loss.
+local STALKER_LAIR=string.char(0xa9,0xf3,0xb1,0xf3,0x3e,0x69,0x1d,0xb5)
 -- Verified draw order above the native spore mask.
 Core.layers={outline=402,symbol=403}
 function Core.after_update(previous,after,...)
@@ -63,9 +65,21 @@ function Core.classify_objectives(read,base,rows,identity)
     local count=u32(head,36);assert(count<=512,'unexpected objective count')
     if count>0 then
         local cache=ptr(head,96,'objective cache')
+        -- Native objective renderer uses the entity handle array at +0x50.
+        -- Missing/empty handles must not disable ordinary side objectives.
+        local handles_ok,handles=pcall(function()
+            return assert(read(ptr(head,80,'objective entity array'),count*8))
+        end)
         for _,row in ipairs(rows) do
             if row.kind=='objective' and row.index<count then
                 row.importance=u32(assert(read(cache+row.index*0x1078+0x1038,4),'objective importance unavailable'),0)
+                row.stalker_lair=false;row.resource=nil
+                if handles_ok then
+                    local valid,unit=pcall(ptr,handles,row.index*8)
+                    local resource=valid and read(unit,8) or nil
+                    row.resource=resource
+                    row.stalker_lair=resource==STALKER_LAIR
+                end
             end
         end
     end
@@ -120,12 +134,33 @@ function Core.mission_rows(read,base,credits,options)
     local ok,message=pcall(Core.classify_objectives,read,base,rows,identity)
     if not ok then
         errors[#errors+1]='SIDE: '..tostring(message)
-        for _,row in ipairs(rows) do row.importance=nil end
+        for _,row in ipairs(rows) do row.importance=nil;row.stalker_lair=false end
     end
     local post_ok,posts,post_errors=pcall(Core.outposts,read,base)
     if not post_ok then errors[#errors+1]='OUTPOST: '..tostring(posts);posts={} end
     if post_ok and post_errors and post_errors~='' then errors[#errors+1]='OUTPOST: '..post_errors end
     return Core.filter(rows,credits,posts,options),table.concat(errors,'\n')
+end
+function Core.outpost_types(read,base)
+    -- +0x2a0 is a byte, so at most 256 entries are addressable. The supported
+    -- build's static table ends in a zero record; 21 was only a partial dump.
+    local bytes=assert(read(base+0x32fcde0,256*32),'outpost types unavailable')
+    local types={}
+    for category=0,255 do
+        local settings=bytes:sub(category*32+1,category*32+32)
+        assert(#settings==32,'short outpost settings')
+        if settings==string.rep('\0',32) then
+            assert(category>0,'empty outpost type table')
+            return types,category,bytes:sub(1,category*32)
+        end
+        local inner,outer=f32(settings,16),f32(settings,20)
+        assert((category==0 or settings:sub(1,8)~=string.rep('\0',8)) and
+            settings:byte(13)<=1 and settings:byte(14)<=1 and
+            inner and outer and inner>=0 and outer>=inner and outer<=100000,
+            'invalid outpost type settings')
+        types[category]=settings
+    end
+    error('outpost type table has no terminator')
 end
 function Core.outposts(read,base)
     local root=assert(read(base+0x33265c0,8))
@@ -135,27 +170,31 @@ function Core.outposts(read,base)
     local rows,errors={},{}
     if count>0 then
         local cache,network=ptr(head,72,'outpost cache'),ptr(head,80,'outpost network')
-        local types=assert(read(base+0x32fcde0,21*32),'outpost types unavailable')
+        local types=Core.outpost_types(read,base)
         for i=0,count-1 do
             local ok,row=pcall(function()
                 local position=assert(read(cache+i*0x2b8,0x2b8))
                 local state=assert(read(network+i*64,64),'outpost state unavailable')
                 local category=position:byte(0x2a1)
-                assert(category and category<21,'unexpected outpost type')
+                assert(category and types[category],'unexpected outpost type')
                 -- Settings +0xc only suppress the native map widget. Hidden
                 -- outposts still need an overlay; identify real types by their
                 -- icon resource instead (the empty type has a zero resource).
-                local settings=types:sub(category*32+1,category*32+32)
+                local settings=types[category]
                 local valid_type=settings:sub(1,8)~=string.rep('\0',8)
                 local native_hidden=settings:byte(13)~=0
+                -- Native status mask 913384 and cleared-count 913491 both
+                -- gate on cache +0x2ab. Mission-attached locations are excluded
+                -- there even when they contain destructible spawners.
+                local counts_as_outpost=position:byte(0x2ac)~=0
                 local discovered=state:byte(0x3c)==1
                 -- Native renderer +0x39 selects the cleared-outpost appearance;
                 -- discovery is a separate byte at +0x3b.
                 local completed=state:byte(0x3a)~=0
                 local x,y=f32(position,0),f32(position,4)
                 if x and y and math.abs(x)<100000 and math.abs(y)<100000 and valid_type then
-                    return {x=x,y=y,kind='outpost',discovered=discovered,category=category,
-                        native_hidden=native_hidden,completed=completed}
+                    return {x=x,y=y,kind='outpost',discovered=discovered,category=category,index=i,
+                        native_hidden=native_hidden,completed=completed,counts_as_outpost=counts_as_outpost}
                 end
             end)
             if ok and row then rows[#rows+1]=row
@@ -164,6 +203,74 @@ function Core.outposts(read,base)
     end
     assert(read(base+0x33265c0,8)==root and read(manager,112)==head,'outposts changed during read')
     return rows,table.concat(errors,'\n')
+end
+-- Manual, bounded capture for missing faction outposts; no address-space scan.
+function Core.outpost_diagnostic(read,base,options,view)
+    local lines={'Target Overlay 1.1.10 HUD curve diagnostic',
+        'outposts_enabled='..tostring(options and options.outposts)}
+    local function hex(bytes)
+        return bytes and (bytes:gsub('.',function(c)return string.format('%02x',c:byte())end)) or 'UNREADABLE'
+    end
+    local ok,message=pcall(function()
+        local root=assert(read(base+0x33265c0,8),'outpost root unavailable')
+        local manager=ptr(root,0)
+        local head=assert(read(manager,112),'outpost header unavailable')
+        local count=u32(head,12)
+        lines[#lines+1]=string.format('manager=0x%x count=%d',manager,count)
+        lines[#lines+1]='header_hex='..hex(head)
+        local _,type_count,types=Core.outpost_types(read,base)
+        lines[#lines+1]='type_count='..type_count
+        lines[#lines+1]='types_hex='..hex(types)
+        if count>0 then
+            local cache,network=ptr(head,72,'outpost cache'),ptr(head,80,'outpost network')
+            lines[#lines+1]=string.format('cache=0x%x network=0x%x capture_limit=128',cache,network)
+            for i=0,math.min(count,128)-1 do
+                local position=read(cache+i*0x2b8,0x2b8)
+                local state=read(network+i*64,64)
+                lines[#lines+1]=string.format('record=%d position_hex=%s network_hex=%s',i,hex(position),hex(state))
+            end
+        end
+        lines[#lines+1]='scene_consistent='..tostring(read(base+0x33265c0,8)==root and read(manager,112)==head)
+    end)
+    if not ok then lines[#lines+1]='CAPTURE_ERROR='..tostring(message) end
+    local objective_ok,objective_error=pcall(function()
+        local rows,identity=Core.snapshot(read,base)
+        Core.classify_objectives(read,base,rows,identity)
+        for _,row in ipairs(rows) do
+            if row.kind=='objective' then
+                lines[#lines+1]=string.format('objective=%d resource_hex=%s xy=(%.3f,%.3f) importance=%s stalker_lair=%s state=%s discovered=%s',
+                    row.index,hex(row.resource),row.x,row.y,tostring(row.importance),tostring(row.stalker_lair),
+                    tostring(row.objective_state),tostring(row.discovered))
+            end
+        end
+    end)
+    if not objective_ok then lines[#lines+1]='OBJECTIVE_CAPTURE_ERROR='..tostring(objective_error) end
+    if view and view.map_address then
+        for _,key in ipairs({'origin_x','origin_y','pan_x','pan_y','scale','cx','cy','radius','xx','xy','yx','yy','tx','ty','width','height','hud_curve','curve_error'}) do
+            lines[#lines+1]='view_'..key..'='..tostring(view[key])
+        end
+        -- Separate native containers and actual outpost widget transforms let
+        -- us distinguish a UI anchor offset from different world coordinates.
+        for _,item in ipairs({{'outposts',0x4ece8},{'pois',0x4bf50},{'objectives_unknown',0xf838},{'objectives_discovered',0x14870}}) do
+            lines[#lines+1]='container_'..item[1]..'_hex='..hex(read(view.map_address+item[2],0x110))
+        end
+        for i=0,31 do
+            lines[#lines+1]=string.format('native_outpost_widget=%d hex=%s',i,hex(read(view.map_address+0x4ee00+i*0x160,0x160)))
+        end
+    end
+    local valid,rows,errors=pcall(Core.outposts,read,base)
+    if valid then
+        lines[#lines+1]='parsed_count='..#rows
+        for i,row in ipairs(rows) do
+            local projected=view and Core.map_project({row},view) or {}
+            lines[#lines+1]=string.format('parsed=%d type=%s xy=(%.3f,%.3f) discovered=%s cleared=%s type_hidden=%s keep=%s inside_map=%s counts_as_outpost=%s record=%d',
+                i,tostring(row.category),row.x,row.y,tostring(row.discovered),tostring(row.completed),
+                tostring(row.native_hidden),tostring(Core.keep_location(row)),tostring(view and #projected>0),
+                tostring(row.counts_as_outpost),row.index)
+        end
+        if errors~='' then lines[#lines+1]='PARSE_ERRORS='..errors end
+    else lines[#lines+1]='PARSE_ERROR='..tostring(rows) end
+    return table.concat(lines,'\n')..'\n'
 end
 function Core.credit_positions(api,list,main,diagnostic)
     local resource=api.IdString64.from_hex('bd6f4de16b9aedcd')
@@ -213,15 +320,22 @@ function Core.credit_positions(api,list,main,diagnostic)
     return points,table.concat(detail,'\n')
 end
 function Core.keep_location(row)
-    if row.native_hidden then return not row.completed end
+    if row.kind=='outpost' then return row.counts_as_outpost~=false and not row.completed end
     return not row.discovered
 end
 function Core.filter(rows,credits,outposts,options)
     options=options or {outposts=true,objectives=true,credits=true}
     local selected={}
     for _,row in ipairs(rows) do
-        if options.objectives and row.kind=='objective' and row.importance==3 and Core.keep_location(row) then
+        if options.objectives and row.kind=='objective' and row.importance==3 and Core.keep_location(row)
+            and (not row.stalker_lair or not options.outposts) then
             selected[#selected+1]=row
+        end
+        -- This side objective is deliberately absent from the outpost count.
+        -- Its own success state means all mission-required holes were cleared.
+        if options.outposts and row.kind=='objective' and row.importance==3 and row.stalker_lair and not row.completed then
+            selected[#selected+1]={x=row.x,y=row.y,kind='stalker_lair',stalker_lair=true,
+                index=row.index,completed=false,counts_as_outpost=true}
         end
     end
     -- Model presence is the only credit criterion; pickup destroys the unit.
@@ -234,7 +348,7 @@ end
 -- Optional Mod Options Menu API 1. Stable IDs key the menu's saved values.
 Core.option_specs={
     {key='outposts',id='astla.target_overlay.outposts',label='标记虫巢',
-        description='标记虫巢、机器人哨站和飞碟据点。普通据点发现后撤销；原版隐藏图标的据点清除后撤销红色标记。'},
+        description='用红色六边形标记计入据点统计的虫巢、机器人哨站、飞碟据点；追踪虫巢穴使用专属红色八角星。发现后保留，清除后撤销；排除其他任务附带虫洞。'},
     {key='objectives',id='astla.target_overlay.objectives',label='标记支线',
         description='标记尚未发现的支线任务。发现后撤销白色标记。'},
     {key='credits',id='astla.target_overlay.credits',label='标记蓝币',
@@ -296,7 +410,15 @@ function Core.map_view(read,base,width,height)
         assert(math.abs(v)<100000,'map value out of range');return v
     end
     local view={origin_x=value(0),origin_y=value(4),pan_x=value(0x10),pan_y=value(0x14),
-        scale=value(0x28),cx=value(0x9c),cy=value(0xa0),radius=value(0xa4)}
+        scale=value(0x28),cx=value(0x9c),cy=value(0xa0),radius=value(0xa4),map_address=map,width=width,height=height}
+    -- 12f3cc7 reads the live setting; 12f3ccf multiplies it by 0.15 for
+    -- hud_curve_amount. Optional read: failure preserves the flat projection.
+    local curve_ok,curve=pcall(function()
+        local v=assert(f32(assert(read(screens+0xac4dc,4)),0),'invalid HUD curve')
+        assert(v>=0 and v<=1,'HUD curve outside supported range');return v
+    end)
+    view.hud_curve=curve_ok and curve or 0
+    view.curve_error=not curve_ok and tostring(curve) or nil
     -- Markers are children of the centered map container. Its X/Z matrix
     -- is already in screen pixels and includes the game's HUD scaling.
     local parent=assert(read(map+0x4bf50,0xa0),'map container unavailable')
@@ -316,6 +438,59 @@ function Core.map_view(read,base,width,height)
     assert(read(base+0x346d538,8)==root and read(map+0x120,0xc8)==head,'map changed during read')
     return view
 end
+-- Vertical HUD contraction fitted to five native icons at curve 0/.5/1.
+-- Strength .15 is independently verified in the native parameter setter.
+-- X is unchanged; contraction is strongest at the screen's horizontal center.
+function Core.hud_warp(x,y,view,inverse)
+    local amount=view.hud_curve or 0
+    if amount==0 then return x,y end
+    local nx=2*x/view.width-1
+    local factor=1-0.15*amount*(1-nx*nx)
+    local dy=y-view.height/2
+    return x,view.height/2+(inverse and dy/factor or dy*factor)
+end
+function Core.calibration_points(view)
+    local points={}
+    for row=1,3 do for col=1,3 do
+        local x=view.cx+(col-2)*view.radius*.55
+        local y=view.cy+(2-row)*view.radius*.55
+        local wx,wy=Core.hud_warp(x,y,view)
+        points[#points+1]={id=(row-1)*3+col,x=x,y=y,wx=wx,wy=wy}
+    end end
+    return points
+end
+function Core.calibration_rects(view)
+    local rects={};local scale=view.icon_scale or 1
+    local raw={220,0,220,255};local warped={220,255,90,220}
+    local digits={'010110010010111','110001010100111','110001010001110',
+        '101101111001001','111100110001110','011100111101111',
+        '111001010010010','111101111101111','111101111001110'}
+    local function rect(x,y,w,h,color)
+        rects[#rects+1]={x=x,y=y,w=w,h=h,color=color}
+    end
+    local function point(x,y,id,color)
+        rect(x-7*scale,y-scale,14*scale,2*scale,color)
+        rect(x-scale,y-7*scale,2*scale,14*scale,color)
+        for i=1,15 do if digits[id]:sub(i,i)=='1' then
+            local col=(i-1)%3;local row=math.floor((i-1)/3)
+            rect(x+(10+col*2)*scale,y+(4-row*2)*scale,2*scale,2*scale,color)
+        end end
+    end
+    -- The flat circle and predicted curved edge are visual references only.
+    -- They intentionally show the difference from the native map boundary.
+    for i=0,95 do
+        local theta=i*math.pi/48
+        local x=view.cx+view.radius*math.cos(theta)
+        local y=view.cy+view.radius*math.sin(theta)
+        local wx,wy=Core.hud_warp(x,y,view)
+        rect(x-scale,y-scale,2*scale,2*scale,raw)
+        rect(wx-scale,wy-scale,2*scale,2*scale,warped)
+    end
+    for _,p in ipairs(Core.calibration_points(view)) do
+        point(p.x,p.y,p.id,raw);point(p.wx,p.wy,p.id,warped)
+    end
+    return rects
+end
 function Core.map_project(rows,view)
     local out={}
     for _,p in ipairs(rows) do
@@ -323,11 +498,17 @@ function Core.map_project(rows,view)
         local y=(p.y-view.origin_y+view.pan_y)*view.scale
         local px=view.tx+x*view.xx+y*view.xy
         local py=view.ty+x*view.yx+y*view.yy
-        local size=(p.kind=='objective' and 22 or (p.kind=='marker' and 16 or 20))*(view.icon_scale or 1)
+        local size=(p.kind=='stalker_lair' and 28 or (p.kind=='objective' and 22 or (p.kind=='marker' and 16 or 20)))*(view.icon_scale or 1)
         local half=size/2+4*(view.icon_scale or 1)
-        local dx,dy=math.abs(px-view.cx)+half,math.abs(py-view.cy)+half
-        -- Keep every corner of the outlined symbol inside the circular map.
-        if dx*dx+dy*dy<=view.radius*view.radius then
+        px,py=Core.hud_warp(px,py,view)
+        local inside=true
+        -- Test actual GUI corners through the inverse deformation against the
+        -- original circle, so the curved edge cannot expose outside markers.
+        for _,sx in ipairs({-1,1}) do for _,sy in ipairs({-1,1}) do
+            local cx,cy=Core.hud_warp(px+sx*half,py+sy*half,view,true)
+            if (cx-view.cx)^2+(cy-view.cy)^2>view.radius^2 then inside=false end
+        end end
+        if inside then
             out[#out+1]={x=px,y=py,kind=p.kind,size=size,completed=p.completed==true}
         end
     end
@@ -335,7 +516,7 @@ function Core.map_project(rows,view)
 end
 function Core.marker_color(p)
     if p.kind=='credit_poi' then return {255,45,120,255} end
-    if p.kind=='outpost' then return {255,255,45,55} end
+    if p.kind=='outpost' or p.kind=='stalker_lair' then return {255,255,45,55} end
     if p.kind=='objective' then return {255,255,255,255} end
     return {255,55,218,234}
 end
@@ -343,30 +524,45 @@ end
 function Core.glyph(kind,size,thickness,step)
     local count=kind=='outpost' and 6 or (kind=='credit_poi' and 3 or 4)
     local vertices={}
-    if count==4 then vertices={{-1,-1},{1,-1},{1,1},{-1,1}}
+    if kind=='stalker_lair' then
+        -- Eight outer tips, alternating with deep valleys; a hollow contour.
+        for i=0,15 do
+            local angle=math.pi/2+i*math.pi/8
+            local radius=i%2==0 and 1 or 0.48
+            vertices[#vertices+1]={math.cos(angle)*radius,math.sin(angle)*radius}
+        end
+    elseif count==4 then vertices={{-1,-1},{1,-1},{1,1},{-1,1}}
     elseif count==3 then vertices={{0,1},{-1,-1},{1,-1}}
     else vertices={{1,0},{0.5,0.866},{-0.5,0.866},{-1,0},{-0.5,-0.866},{0.5,-0.866}} end
     local function span(y,radius)
-        local left,right
+        local intersections={}
         for i,a in ipairs(vertices) do
             local b=vertices[i%#vertices+1]
             local ay,by=a[2]*radius,b[2]*radius
             if (ay<=y and by>y) or (by<=y and ay>y) then
                 local x=a[1]*radius+(y-ay)*(b[1]-a[1])*radius/(by-ay)
-                left=math.min(left or x,x);right=math.max(right or x,x)
+                intersections[#intersections+1]=x
             end
         end
-        return left,right
+        -- A concave star can have multiple disconnected spans in one row.
+        table.sort(intersections)
+        local spans={}
+        for i=1,#intersections-1,2 do spans[#spans+1]={intersections[i],intersections[i+1]} end
+        return spans
     end
     local result={};local radius=size/2
     for y=-radius,radius-step,step do
-        local left,right=span(y+step/2,radius)
-        if left and right then
-            local il,ir=span(y+step/2,math.max(0,radius-thickness))
-            if il and ir then
-                result[#result+1]={left,y,math.max(0,il-left),step}
-                result[#result+1]={ir,y,math.max(0,right-ir),step}
-            else result[#result+1]={left,y,right-left,step} end
+        local inner=span(y+step/2,math.max(0,radius-thickness))
+        for _,outer in ipairs(span(y+step/2,radius)) do
+            local cursor,right=outer[1],outer[2]
+            for _,hole in ipairs(inner) do
+                if hole[2]>cursor and hole[1]<right then
+                    local stop=math.min(right,hole[1])
+                    if stop>cursor then result[#result+1]={cursor,y,stop-cursor,step} end
+                    cursor=math.max(cursor,hole[2])
+                end
+            end
+            if cursor<right then result[#result+1]={cursor,y,right-cursor,step} end
         end
     end
     return result
@@ -446,6 +642,10 @@ local function init()
     for _,s in ipairs(ORIGINAL_SITES) do assert(read(base+s.rva,#s.bytes)==s.bytes,'Old rendering patch/conflicting code still active; disable it and restart') end
     sr=rawget(_G,'stingray') or rawget(_G,'s3d');assert(sr and sr.Gui and sr.World,'GUI API unavailable')
     state.key=sr.Keyboard.button_id('f7')
+    if OUTPOST_DIAGNOSTIC then
+        state.capture_key=sr.Keyboard.button_id('f8')
+        state.calibration_key=sr.Keyboard.button_id('f9')
+    end
     status('READY','Overlay follows native minimap visibility; F7 enables/disables overlay')
 end
 local function worlds()
@@ -456,6 +656,49 @@ end
 local function live(list,world)
     for _,w in pairs(list) do if w==world then return true end end
     return false
+end
+local function capture_outposts()
+    local loader=rawget(_G,'CowboyBingusModLoader')
+    local directory=type(loader)=='table' and loader.log_directory
+    if type(directory)~='string' then
+        local localapp=os.getenv('LOCALAPPDATA')
+        assert(localapp,'Diagnostic log directory unavailable')
+        directory=localapp..'\\CowboyBingus\\Helldivers2\\Logs'
+    end
+    local width,height=sr.Gui.resolution()
+    local valid,view=pcall(Core.map_view,read,base,width,height)
+    local report=Core.outpost_diagnostic(read,base,state.options,valid and view or nil)
+    state.capture_sequence=(state.capture_sequence or 0)+1
+    report=report..'calibration_enabled='..tostring(state.calibration==true)..'\n'
+        ..'captured_at='..os.date('%Y-%m-%d %H:%M:%S')..'\n'
+    if valid and view then
+        for _,p in ipairs(Core.calibration_points(view)) do
+            report=report..string.format('calibration_point=%d flat=(%.3f,%.3f) trial=(%.3f,%.3f)\n',p.id,p.x,p.y,p.wx,p.wy)
+        end
+    end
+    report=report..'map_open='..tostring(valid and view~=nil)..'\n'
+        ..'overlay_enabled='..tostring(state.enabled)..'\n'
+        ..'category_error='..tostring(state.category_error)..'\n'
+        ..'snapshot_error='..tostring(state.snapshot_error)..'\n'
+        ..'menu_error='..tostring(state.options_error)..'\n'
+    local path=directory..'\\TargetOverlay_OUTPOST_DIAGNOSTIC.txt'
+    local file,reason=io.open(path,'wb')
+    if not file then state.capture_error=tostring(reason);return end
+    local wrote,write_error=file:write(report)
+    file:close()
+    state.capture_error=not wrote and tostring(write_error) or nil
+    state.capture_path=wrote and path or nil
+    if wrote then
+        local tag=valid and view and string.format('%.3f',view.hud_curve or 0) or 'unknown'
+        local copy_path=directory..'\\TargetOverlay_HUD_'..os.date('%Y%m%d_%H%M%S')
+            ..'_curve_'..tag..'_'..state.capture_sequence..'.txt'
+        local copy,copy_reason=io.open(copy_path,'wb')
+        if copy then
+            local saved,save_reason=copy:write(report);copy:close()
+            state.calibration_capture_path=saved and copy_path or nil
+            if not saved then state.capture_error=tostring(save_reason) end
+        else state.capture_error=tostring(copy_reason) end
+    end
 end
 local function clear(list)
     if state.gui and live(list,state.world) then
@@ -505,6 +748,19 @@ local function draw(rows,view,list)
     if not target or not live(list,target) then return end
     if state.world~=target then release(list) end
     if not state.gui then state.gui=assert(sr.World.create_screen_gui(target,'scale',1,1));state.world=target end
+    if OUTPOST_DIAGNOSTIC and state.calibration then
+        local signature=table.concat({'calibration',view.cx,view.cy,view.radius,view.width,view.height,view.hud_curve or 0},':')
+        if state.last_draw==signature then return end
+        clear(list)
+        for _,p in ipairs(Core.calibration_rects(view)) do
+            local c=p.color
+            local id=sr.Gui.rect(state.gui,sr.Vector3(p.x,p.y,Core.layers.symbol),
+                sr.Vector2(p.w,p.h),sr.Color(c[1],c[2],c[3],c[4]))
+            assert(id~=nil,'calibration rectangle creation failed');state.ids[#state.ids+1]=id
+        end
+        state.last_draw=signature
+        return
+    end
     local projected=Core.map_project(rows,view)
     local signature=Core.draw_key(projected)
     if state.last_draw==signature then return end
@@ -538,6 +794,10 @@ local function refresh()
         state.rows=nil
         local detail=not valid and tostring(view) or 'Native minimap closed or HUD hidden'
         status('MAP_HIDDEN',detail)
+        return
+    end
+    if OUTPOST_DIAGNOSTIC and state.calibration then
+        draw({},view,list);status('CALIBRATING','F9 closes calibration; F8 captures current HUD curve')
         return
     end
     local ok,rows=true,state.rows
@@ -578,7 +838,24 @@ local function tick()
     down=down==true or (type(down)=='number' and down>0)
     if down and not state.down then state.enabled=not state.enabled;state.frame=0 end
     state.down=down
+    if OUTPOST_DIAGNOSTIC and state.calibration_key then
+        local calibration_down=sr.Keyboard.button(state.calibration_key)
+        calibration_down=calibration_down==true or (type(calibration_down)=='number' and calibration_down>0)
+        if calibration_down and not state.calibration_down then
+            state.calibration=not state.calibration;state.last_draw=nil;state.rows=nil
+        end
+        state.calibration_down=calibration_down
+    end
     refresh()
+    if OUTPOST_DIAGNOSTIC then
+        local capture_down=sr.Keyboard.button(state.capture_key)
+        capture_down=capture_down==true or (type(capture_down)=='number' and capture_down>0)
+        if capture_down and not state.capture_down then
+            local captured,message=pcall(capture_outposts)
+            if not captured then state.capture_error=tostring(message) end
+        end
+        state.capture_down=capture_down
+    end
 end
 local function overlay_update()
     if not state.failed then

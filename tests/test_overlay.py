@@ -1,4 +1,4 @@
-import sys,struct,unittest
+import sys,struct,unittest,json
 from pathlib import Path
 from lupa.luajit21 import LuaRuntime
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
@@ -126,14 +126,15 @@ class OverlayTests(unittest.TestCase):
         points,_=self.core[b'credit_positions'](api,worlds)
         self.assertEqual(len(self.core[b'filter'](empty,points,empty)),0)
 
-    def outpost_fixture(self,categories=(3,),discovered=(),missing=(),race=False,completed=()):
+    def outpost_fixture(self,categories=(3,),discovered=(),missing=(),race=False,completed=(),uncounted=()):
         head=bytearray(112);struct.pack_into('<I',head,12,len(categories))
         struct.pack_into('<QQ',head,72,0x20000,0x30000)
         memory={0x33265c0:struct.pack('<Q',0x10000),0x10000:bytes(head),
-                0x32fcde0:(ROOT/'research/outpost-type-settings.bin').read_bytes()}
+                0x32fcde0:bytes.fromhex(json.loads((ROOT/'tests/fixtures/outpost-types-supported-build.json').read_text())['settings_hex']).ljust(256*32,b'\0')}
         for i,category in enumerate(categories):
             position=bytearray(0x2b8);struct.pack_into('<fff',position,0,11+i*100,22,3)
             position[0x2a0]=category
+            position[0x2ab]=int(i not in uncounted)
             net=bytearray(64);net[0x39]=int(i in completed);net[0x3b]=int(i in discovered)
             if i not in missing:memory[0x20000+i*0x2b8]=bytes(position)
             memory[0x30000+i*64]=bytes(net)
@@ -159,21 +160,20 @@ class OverlayTests(unittest.TestCase):
         empty=self.lua.table_from([])
         self.assertEqual(len(self.core[b'filter'](empty,empty,result)),20)
 
-    def test_hidden_outposts_survive_discovery_until_cleared(self):
+    def test_all_outposts_survive_discovery_until_cleared(self):
         empty=self.lua.table_from([])
         # Real settings cover hidden types 1,9,15,20 and ordinary types.
-        categories=(1,3,9,11,15,17,20)
+        categories=tuple(range(1,21))
         hidden=[1,9,15,20]
         for discovered in ((),tuple(range(len(categories)))):
-            for completed in ((),tuple(range(len(categories)))):
+            for completed in ((),tuple(range(len(categories))),tuple(range(0,len(categories),2))):
                 posts,error=self.core[b'outposts'](self.outpost_fixture(categories,discovered=discovered,completed=completed),0)
                 self.assertEqual(error,b'')
                 for i,category in enumerate(categories,1):
                     self.assertEqual(posts[i][b'native_hidden'],category in hidden)
                     self.assertEqual(posts[i][b'completed'],i-1 in completed)
                 selected=self.core[b'filter'](empty,empty,posts)
-                expected=[category for i,category in enumerate(categories)
-                          if (i not in completed if category in hidden else i not in discovered)]
+                expected=[category for i,category in enumerate(categories) if i not in completed]
                 self.assertEqual([selected[i][b'category'] for i in range(1,len(selected)+1)],expected)
 
     def test_hidden_dual_role_nest_and_category_switch(self):
@@ -203,6 +203,8 @@ class OverlayTests(unittest.TestCase):
         objectives[1][b'discovered']=True
         self.assertEqual(self.core[b'filter'](objectives,empty,posts)[1][b'kind'],b'outpost')
         objectives[1][b'discovered']=False;posts[1][b'discovered']=True
+        self.assertEqual(len(self.core[b'filter'](objectives,empty,posts)),2)
+        posts[1][b'completed']=True
         self.assertEqual(self.core[b'filter'](objectives,empty,posts)[1][b'kind'],b'objective')
 
     def test_native_classification_metadata(self):
@@ -245,15 +247,16 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(error,b'')
         self.core[b'snapshot']=original_snapshot;self.core[b'outposts']=original_outposts
 
-    def test_discovered_locations_are_removed_independent_of_completion(self):
+    def test_side_discovery_and_outpost_clear_rules_are_independent(self):
         rows=self.lua.execute(b"return {{kind='objective',importance=3,x=0,y=0,discovered=true},{kind='objective',importance=3,x=1,y=1,completed=true},{kind='marker',small_poi=true,x=100,y=100,discovered=true}}")
         credits=self.lua.execute(b'return {{x=102,y=101}}')
-        posts=self.lua.execute(b"return {{kind='outpost',x=200,y=200,discovered=true},{kind='outpost',x=300,y=300}}")
+        posts=self.lua.execute(b"return {{kind='outpost',x=200,y=200,discovered=true},{kind='outpost',x=300,y=300},{kind='outpost',x=400,y=400,completed=true}}")
         result=self.core[b'filter'](rows,credits,posts)
-        self.assertEqual(len(result),3)
+        self.assertEqual(len(result),4)
         self.assertEqual(result[1][b'x'],1)
         self.assertEqual(result[2][b'x'],102)
-        self.assertEqual(result[3][b'x'],300)
+        self.assertEqual(result[3][b'x'],200)
+        self.assertEqual(result[4][b'x'],300)
     def test_polygon_glyphs_bounded_and_distinct(self):
         glyphs=[]
         for kind in [b'objective',b'outpost',b'credit_poi']:
