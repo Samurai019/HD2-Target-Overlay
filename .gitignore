@@ -17,3 +17,6 @@ venv/
 
 # Local gameplay screenshots
 /research/fog-case-*/screenshot.png
+
+# Extracted black-box model research (node fixture is kept in tests)
+/research/black-box/

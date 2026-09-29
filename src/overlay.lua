@@ -128,7 +128,7 @@ function Core.classify(read,base,rows,identity)
     Core.classify_pois(read,base,rows,identity)
     return rows
 end
-function Core.mission_rows(read,base,credits,options)
+function Core.mission_rows(read,base,credits,options,black_boxes)
     local rows,identity=Core.snapshot(read,base)
     local errors={}
     local ok,message=pcall(Core.classify_objectives,read,base,rows,identity)
@@ -139,7 +139,7 @@ function Core.mission_rows(read,base,credits,options)
     local post_ok,posts,post_errors=pcall(Core.outposts,read,base)
     if not post_ok then errors[#errors+1]='OUTPOST: '..tostring(posts);posts={} end
     if post_ok and post_errors and post_errors~='' then errors[#errors+1]='OUTPOST: '..post_errors end
-    return Core.filter(rows,credits,posts,options),table.concat(errors,'\n')
+    return Core.filter(rows,credits,posts,options,black_boxes),table.concat(errors,'\n')
 end
 function Core.outpost_types(read,base)
     -- +0x2a0 is a byte, so at most 256 entries are addressable. The supported
@@ -204,127 +204,104 @@ function Core.outposts(read,base)
     assert(read(base+0x33265c0,8)==root and read(manager,112)==head,'outposts changed during read')
     return rows,table.concat(errors,'\n')
 end
--- Manual, bounded capture for missing faction outposts; no address-space scan.
-function Core.outpost_diagnostic(read,base,options,view)
-    local lines={'Target Overlay 1.1.10 HUD curve diagnostic',
-        'outposts_enabled='..tostring(options and options.outposts)}
-    local function hex(bytes)
-        return bytes and (bytes:gsub('.',function(c)return string.format('%02x',c:byte())end)) or 'UNREADABLE'
-    end
-    local ok,message=pcall(function()
-        local root=assert(read(base+0x33265c0,8),'outpost root unavailable')
-        local manager=ptr(root,0)
-        local head=assert(read(manager,112),'outpost header unavailable')
-        local count=u32(head,12)
-        lines[#lines+1]=string.format('manager=0x%x count=%d',manager,count)
-        lines[#lines+1]='header_hex='..hex(head)
-        local _,type_count,types=Core.outpost_types(read,base)
-        lines[#lines+1]='type_count='..type_count
-        lines[#lines+1]='types_hex='..hex(types)
-        if count>0 then
-            local cache,network=ptr(head,72,'outpost cache'),ptr(head,80,'outpost network')
-            lines[#lines+1]=string.format('cache=0x%x network=0x%x capture_limit=128',cache,network)
-            for i=0,math.min(count,128)-1 do
-                local position=read(cache+i*0x2b8,0x2b8)
-                local state=read(network+i*64,64)
-                lines[#lines+1]=string.format('record=%d position_hex=%s network_hex=%s',i,hex(position),hex(state))
-            end
-        end
-        lines[#lines+1]='scene_consistent='..tostring(read(base+0x33265c0,8)==root and read(manager,112)==head)
-    end)
-    if not ok then lines[#lines+1]='CAPTURE_ERROR='..tostring(message) end
-    local objective_ok,objective_error=pcall(function()
-        local rows,identity=Core.snapshot(read,base)
-        Core.classify_objectives(read,base,rows,identity)
-        for _,row in ipairs(rows) do
-            if row.kind=='objective' then
-                lines[#lines+1]=string.format('objective=%d resource_hex=%s xy=(%.3f,%.3f) importance=%s stalker_lair=%s state=%s discovered=%s',
-                    row.index,hex(row.resource),row.x,row.y,tostring(row.importance),tostring(row.stalker_lair),
-                    tostring(row.objective_state),tostring(row.discovered))
-            end
-        end
-    end)
-    if not objective_ok then lines[#lines+1]='OBJECTIVE_CAPTURE_ERROR='..tostring(objective_error) end
-    if view and view.map_address then
-        for _,key in ipairs({'origin_x','origin_y','pan_x','pan_y','scale','cx','cy','radius','xx','xy','yx','yy','tx','ty','width','height','hud_curve','curve_error'}) do
-            lines[#lines+1]='view_'..key..'='..tostring(view[key])
-        end
-        -- Separate native containers and actual outpost widget transforms let
-        -- us distinguish a UI anchor offset from different world coordinates.
-        for _,item in ipairs({{'outposts',0x4ece8},{'pois',0x4bf50},{'objectives_unknown',0xf838},{'objectives_discovered',0x14870}}) do
-            lines[#lines+1]='container_'..item[1]..'_hex='..hex(read(view.map_address+item[2],0x110))
-        end
-        for i=0,31 do
-            lines[#lines+1]=string.format('native_outpost_widget=%d hex=%s',i,hex(read(view.map_address+0x4ee00+i*0x160,0x160)))
-        end
-    end
-    local valid,rows,errors=pcall(Core.outposts,read,base)
-    if valid then
-        lines[#lines+1]='parsed_count='..#rows
-        for i,row in ipairs(rows) do
-            local projected=view and Core.map_project({row},view) or {}
-            lines[#lines+1]=string.format('parsed=%d type=%s xy=(%.3f,%.3f) discovered=%s cleared=%s type_hidden=%s keep=%s inside_map=%s counts_as_outpost=%s record=%d',
-                i,tostring(row.category),row.x,row.y,tostring(row.discovered),tostring(row.completed),
-                tostring(row.native_hidden),tostring(Core.keep_location(row)),tostring(view and #projected>0),
-                tostring(row.counts_as_outpost),row.index)
-        end
-        if errors~='' then lines[#lines+1]='PARSE_ERRORS='..errors end
-    else lines[#lines+1]='PARSE_ERROR='..tostring(rows) end
-    return table.concat(lines,'\n')..'\n'
-end
-function Core.credit_positions(api,list,main,diagnostic)
-    local resource=api.IdString64.from_hex('bd6f4de16b9aedcd')
-    local points,seen,detail={},{},{}
+function Core.model_positions(api,list,main,resource_hex,position_node)
+    local resource=api.IdString64.from_hex(resource_hex)
+    local points,seen={},{}
     local worlds_seen=0
     for _,world in pairs(list) do
         worlds_seen=worlds_seen+1;assert(worlds_seen<=8,'too many worlds')
         local gameplay=main==nil or world==main
-        if diagnostic then detail[#detail+1]=string.format('world=%d gameplay=%s',worlds_seen,tostring(gameplay)) end
         local units=api.World.units_by_resource(world,resource)
         assert(type(units)=='table','resource query unavailable')
         local count=0
         for _,unit in pairs(units) do
-            count=count+1;assert(count<=128,'too many credit units')
+            count=count+1;assert(count<=128,'too many model units')
             if not seen[unit] and api.Unit.alive(unit) then
                 seen[unit]=true
                 local root=api.Unit.world_position(unit,0)
                 local rx,ry=api.Vector3.x(root),api.Vector3.y(root)
                 local rz=api.Vector3.z and api.Vector3.z(root) or nil
                 local node=0
-                local note='root fallback'
                 if api.Unit.has_node and api.Unit.node then
-                    local name=api.IdString32 and api.IdString32.from_hex('e4a4586d') or 'interact'
+                    local node_hex=position_node and position_node.hex or 'e4a4586d'
+                    local name=api.IdString32 and api.IdString32.from_hex(node_hex) or (position_node and position_node.name or 'interact')
                     local node_ok,result=pcall(function()
                         if api.Unit.has_node(unit,name) then return api.Unit.node(unit,name) end
                     end)
                     if node_ok and type(result)=='number' and result>=0 and result<256 then
-                        node=result;note='interact'
-                    elseif not node_ok then note='interact lookup failed: '..tostring(result) end
+                        node=result
+                    end
                 end
                 local position=api.Unit.world_position(unit,node)
                 local x,y=api.Vector3.x(position),api.Vector3.y(position)
-                local z=api.Vector3.z and api.Vector3.z(position) or nil
                 if type(x)=='number' and type(y)=='number' and x==x and y==y and
                     math.abs(x)<100000 and math.abs(y)<100000 then
                     -- Observed three distinct units returning zero root positions.
                     -- A nearby bind-pose interaction offset does not resolve that ambiguity.
                     local unresolved=rx==0 and ry==0 and (rz==nil or rz==0) and x*x+y*y<1
+                    -- Carryable black boxes have a named mesh node, no interact
+                    -- node. Never publish their unresolved root/default XY.
+                    if position_node then
+                        unresolved=node==0 or x*x+y*y<0.0001 or (rx==0 and ry==0 and x*x+y*y<1)
+                    end
                     local selected=gameplay and not unresolved
-                    if diagnostic then detail[#detail+1]=string.format('  unit=%s root=(%s,%s,%s) node=%d %s position=(%.3f,%.3f,%s) selected=%s unresolved_origin=%s',
-                        tostring(unit),tostring(rx),tostring(ry),tostring(rz),node,note,x,y,tostring(z),tostring(selected),tostring(unresolved)) end
                     if selected then points[#points+1]={x=x,y=y} end
                 end
             end
         end
     end
-    return points,table.concat(detail,'\n')
+    return points
+end
+function Core.credit_positions(api,list,main)
+    return Core.model_positions(api,list,main,'bd6f4de16b9aedcd')
+end
+function Core.black_box_positions(api,list,main)
+    -- UnitComponent data maps the carryable entities to this model resource.
+    return Core.model_positions(api,list,main,'3de2415ea33b6897',
+        {hex='3c9e8cfd',name='black_box_01'})
+end
+-- Native ObjectiveCarry records use entity resources, not the queried model ID.
+-- All three carryable entities share the black-box model. Compare raw bytes.
+local BLACK_BOX_ENTITIES={
+    [string.char(0x97,0x68,0x3b,0xa3,0x5e,0x41,0xe2,0x3d)]=true,
+    [string.char(0x1c,0x8d,0xd4,0x8b,0x11,0xa3,0xd7,0x8a)]=true,
+    [string.char(0x38,0x5e,0x86,0x5a,0x2b,0x72,0x3e,0x4a)]=true
+}
+function Core.native_black_box_visible(read,base)
+    local root=assert(read(base+0x3326d00,8),'black-box carry manager unavailable')
+    local address=ptr(root,0)
+    local head=assert(read(address,112),'black-box map header unavailable')
+    local count=u32(head,12);assert(count<=512,'unexpected map marker count')
+    local visible=false
+    if count>0 then
+        local handles=assert(read(ptr(head,56),count*8),'map marker entities unavailable')
+        local flags=assert(read(ptr(head,80),count*36),'carry marker visibility unavailable')
+        for i=0,count-1 do
+            local valid,entity=pcall(ptr,handles,i*8)
+            if valid then
+                local resource=assert(read(entity,8),'map marker resource unavailable')
+                -- ObjectiveCarry map renderer 18b0b81 uses stride 0x24:
+                -- byte +4 enables the icon, byte +5 reveals it. The reveal
+                -- field is initialized to 0 at 5c956c and replicated at
+                -- 5c971d. Once revealed, leave this item to the native HUD,
+                -- including when it is temporarily disabled while attached.
+                if BLACK_BOX_ENTITIES[resource] and flags:byte(i*36+6)~=0 then visible=true end
+            end
+        end
+    end
+    assert(read(base+0x3326d00,8)==root and read(address,112)==head,'black-box carry scene changed')
+    return visible
+end
+function Core.unmarked_black_boxes(read,base,boxes)
+    if #boxes==0 then return boxes end
+    return Core.native_black_box_visible(read,base) and {} or boxes
 end
 function Core.keep_location(row)
     if row.kind=='outpost' then return row.counts_as_outpost~=false and not row.completed end
     return not row.discovered
 end
-function Core.filter(rows,credits,outposts,options)
-    options=options or {outposts=true,objectives=true,credits=true}
+function Core.filter(rows,credits,outposts,options,black_boxes)
+    options=options or {outposts=true,objectives=true,credits=true,black_boxes=true}
     local selected={}
     for _,row in ipairs(rows) do
         if options.objectives and row.kind=='objective' and row.importance==3 and Core.keep_location(row)
@@ -342,6 +319,9 @@ function Core.filter(rows,credits,outposts,options)
     for _,credit in ipairs(options.credits and credits or {}) do
         selected[#selected+1]={x=credit.x,y=credit.y,kind='credit_poi'}
     end
+    for _,box in ipairs(options.black_boxes and black_boxes or {}) do
+        selected[#selected+1]={x=box.x,y=box.y,kind='black_box'}
+    end
     for _,row in ipairs(options.outposts and outposts or {}) do if Core.keep_location(row) then selected[#selected+1]=row end end
     return selected
 end
@@ -352,7 +332,9 @@ Core.option_specs={
     {key='objectives',id='astla.target_overlay.objectives',label='标记支线',
         description='标记尚未发现的支线任务。发现后撤销白色标记。'},
     {key='credits',id='astla.target_overlay.credits',label='标记蓝币',
-        description='标记已加载的超级货币模型。拾取后撤销蓝色标记。'}
+        description='标记已加载的超级货币模型。拾取后撤销蓝色标记。'},
+    {key='black_boxes',id='astla.target_overlay.black_boxes',label='标记黑匣子',
+        description='用黄色空心菱形标记已加载且原版尚未标记的主线黑匣子。首次拾取后由原版标记接管，黄色标记撤销。'}
 }
 function Core.menu_step(state,menu)
     if type(menu)~='table' or menu.api~=1 or type(menu.register_option)~='function' or
@@ -449,48 +431,6 @@ function Core.hud_warp(x,y,view,inverse)
     local dy=y-view.height/2
     return x,view.height/2+(inverse and dy/factor or dy*factor)
 end
-function Core.calibration_points(view)
-    local points={}
-    for row=1,3 do for col=1,3 do
-        local x=view.cx+(col-2)*view.radius*.55
-        local y=view.cy+(2-row)*view.radius*.55
-        local wx,wy=Core.hud_warp(x,y,view)
-        points[#points+1]={id=(row-1)*3+col,x=x,y=y,wx=wx,wy=wy}
-    end end
-    return points
-end
-function Core.calibration_rects(view)
-    local rects={};local scale=view.icon_scale or 1
-    local raw={220,0,220,255};local warped={220,255,90,220}
-    local digits={'010110010010111','110001010100111','110001010001110',
-        '101101111001001','111100110001110','011100111101111',
-        '111001010010010','111101111101111','111101111001110'}
-    local function rect(x,y,w,h,color)
-        rects[#rects+1]={x=x,y=y,w=w,h=h,color=color}
-    end
-    local function point(x,y,id,color)
-        rect(x-7*scale,y-scale,14*scale,2*scale,color)
-        rect(x-scale,y-7*scale,2*scale,14*scale,color)
-        for i=1,15 do if digits[id]:sub(i,i)=='1' then
-            local col=(i-1)%3;local row=math.floor((i-1)/3)
-            rect(x+(10+col*2)*scale,y+(4-row*2)*scale,2*scale,2*scale,color)
-        end end
-    end
-    -- The flat circle and predicted curved edge are visual references only.
-    -- They intentionally show the difference from the native map boundary.
-    for i=0,95 do
-        local theta=i*math.pi/48
-        local x=view.cx+view.radius*math.cos(theta)
-        local y=view.cy+view.radius*math.sin(theta)
-        local wx,wy=Core.hud_warp(x,y,view)
-        rect(x-scale,y-scale,2*scale,2*scale,raw)
-        rect(wx-scale,wy-scale,2*scale,2*scale,warped)
-    end
-    for _,p in ipairs(Core.calibration_points(view)) do
-        point(p.x,p.y,p.id,raw);point(p.wx,p.wy,p.id,warped)
-    end
-    return rects
-end
 function Core.map_project(rows,view)
     local out={}
     for _,p in ipairs(rows) do
@@ -515,6 +455,7 @@ function Core.map_project(rows,view)
     return out
 end
 function Core.marker_color(p)
+    if p.kind=='black_box' then return {255,255,210,45} end
     if p.kind=='credit_poi' then return {255,45,120,255} end
     if p.kind=='outpost' or p.kind=='stalker_lair' then return {255,255,45,55} end
     if p.kind=='objective' then return {255,255,255,255} end
@@ -524,7 +465,9 @@ end
 function Core.glyph(kind,size,thickness,step)
     local count=kind=='outpost' and 6 or (kind=='credit_poi' and 3 or 4)
     local vertices={}
-    if kind=='stalker_lair' then
+    if kind=='black_box' then
+        vertices={{0,1},{-1,0},{0,-1},{1,0}}
+    elseif kind=='stalker_lair' then
         -- Eight outer tips, alternating with deep valleys; a hollow contour.
         for i=0,15 do
             local angle=math.pi/2+i*math.pi/8
@@ -599,7 +542,7 @@ function Core.choose_world(list,main,last)
 end
 if rawget(_G,'HD2OverlayTest') then return Core end
 if rawget(_G,'HD2TargetOverlay') then return end
-local state={frame=0,enabled=true,ids={},phase='starting',options={outposts=true,objectives=true,credits=true}}
+local state={frame=0,enabled=true,ids={},phase='starting',options={outposts=true,objectives=true,credits=true,black_boxes=true}}
 _G.HD2TargetOverlay=state
 local function status(phase,message)
     if state.phase==phase and state.message==message then return end
@@ -642,10 +585,6 @@ local function init()
     for _,s in ipairs(ORIGINAL_SITES) do assert(read(base+s.rva,#s.bytes)==s.bytes,'Old rendering patch/conflicting code still active; disable it and restart') end
     sr=rawget(_G,'stingray') or rawget(_G,'s3d');assert(sr and sr.Gui and sr.World,'GUI API unavailable')
     state.key=sr.Keyboard.button_id('f7')
-    if OUTPOST_DIAGNOSTIC then
-        state.capture_key=sr.Keyboard.button_id('f8')
-        state.calibration_key=sr.Keyboard.button_id('f9')
-    end
     status('READY','Overlay follows native minimap visibility; F7 enables/disables overlay')
 end
 local function worlds()
@@ -656,49 +595,6 @@ end
 local function live(list,world)
     for _,w in pairs(list) do if w==world then return true end end
     return false
-end
-local function capture_outposts()
-    local loader=rawget(_G,'CowboyBingusModLoader')
-    local directory=type(loader)=='table' and loader.log_directory
-    if type(directory)~='string' then
-        local localapp=os.getenv('LOCALAPPDATA')
-        assert(localapp,'Diagnostic log directory unavailable')
-        directory=localapp..'\\CowboyBingus\\Helldivers2\\Logs'
-    end
-    local width,height=sr.Gui.resolution()
-    local valid,view=pcall(Core.map_view,read,base,width,height)
-    local report=Core.outpost_diagnostic(read,base,state.options,valid and view or nil)
-    state.capture_sequence=(state.capture_sequence or 0)+1
-    report=report..'calibration_enabled='..tostring(state.calibration==true)..'\n'
-        ..'captured_at='..os.date('%Y-%m-%d %H:%M:%S')..'\n'
-    if valid and view then
-        for _,p in ipairs(Core.calibration_points(view)) do
-            report=report..string.format('calibration_point=%d flat=(%.3f,%.3f) trial=(%.3f,%.3f)\n',p.id,p.x,p.y,p.wx,p.wy)
-        end
-    end
-    report=report..'map_open='..tostring(valid and view~=nil)..'\n'
-        ..'overlay_enabled='..tostring(state.enabled)..'\n'
-        ..'category_error='..tostring(state.category_error)..'\n'
-        ..'snapshot_error='..tostring(state.snapshot_error)..'\n'
-        ..'menu_error='..tostring(state.options_error)..'\n'
-    local path=directory..'\\TargetOverlay_OUTPOST_DIAGNOSTIC.txt'
-    local file,reason=io.open(path,'wb')
-    if not file then state.capture_error=tostring(reason);return end
-    local wrote,write_error=file:write(report)
-    file:close()
-    state.capture_error=not wrote and tostring(write_error) or nil
-    state.capture_path=wrote and path or nil
-    if wrote then
-        local tag=valid and view and string.format('%.3f',view.hud_curve or 0) or 'unknown'
-        local copy_path=directory..'\\TargetOverlay_HUD_'..os.date('%Y%m%d_%H%M%S')
-            ..'_curve_'..tag..'_'..state.capture_sequence..'.txt'
-        local copy,copy_reason=io.open(copy_path,'wb')
-        if copy then
-            local saved,save_reason=copy:write(report);copy:close()
-            state.calibration_capture_path=saved and copy_path or nil
-            if not saved then state.capture_error=tostring(save_reason) end
-        else state.capture_error=tostring(copy_reason) end
-    end
 end
 local function clear(list)
     if state.gui and live(list,state.world) then
@@ -748,19 +644,6 @@ local function draw(rows,view,list)
     if not target or not live(list,target) then return end
     if state.world~=target then release(list) end
     if not state.gui then state.gui=assert(sr.World.create_screen_gui(target,'scale',1,1));state.world=target end
-    if OUTPOST_DIAGNOSTIC and state.calibration then
-        local signature=table.concat({'calibration',view.cx,view.cy,view.radius,view.width,view.height,view.hud_curve or 0},':')
-        if state.last_draw==signature then return end
-        clear(list)
-        for _,p in ipairs(Core.calibration_rects(view)) do
-            local c=p.color
-            local id=sr.Gui.rect(state.gui,sr.Vector3(p.x,p.y,Core.layers.symbol),
-                sr.Vector2(p.w,p.h),sr.Color(c[1],c[2],c[3],c[4]))
-            assert(id~=nil,'calibration rectangle creation failed');state.ids[#state.ids+1]=id
-        end
-        state.last_draw=signature
-        return
-    end
     local projected=Core.map_project(rows,view)
     local signature=Core.draw_key(projected)
     if state.last_draw==signature then return end
@@ -796,10 +679,6 @@ local function refresh()
         status('MAP_HIDDEN',detail)
         return
     end
-    if OUTPOST_DIAGNOSTIC and state.calibration then
-        draw({},view,list);status('CALIBRATING','F9 closes calibration; F8 captures current HUD curve')
-        return
-    end
     local ok,rows=true,state.rows
     if not rows or state.frame%30==0 then
         ok,rows=pcall(function()
@@ -807,7 +686,16 @@ local function refresh()
             if state.options.credits then credit_ok,credits=pcall(Core.credit_positions,sr,list,sr.Application.main_world()) end
             state.credit_error=not credit_ok and tostring(credits) or nil
             state.credit_count=credit_ok and #credits or 0
-            local selected,errors=Core.mission_rows(read,base,credit_ok and credits or {},state.options)
+            local box_ok,boxes=true,{}
+            if state.options.black_boxes then
+                box_ok,boxes=pcall(function()
+                    local positions=Core.black_box_positions(sr,list,sr.Application.main_world())
+                    return Core.unmarked_black_boxes(read,base,positions)
+                end)
+            end
+            state.black_box_error=not box_ok and tostring(boxes) or nil
+            state.black_box_count=box_ok and #boxes or 0
+            local selected,errors=Core.mission_rows(read,base,credit_ok and credits or {},state.options,box_ok and boxes or {})
             state.category_error=errors~='' and errors or nil
             return selected
         end)
@@ -838,24 +726,7 @@ local function tick()
     down=down==true or (type(down)=='number' and down>0)
     if down and not state.down then state.enabled=not state.enabled;state.frame=0 end
     state.down=down
-    if OUTPOST_DIAGNOSTIC and state.calibration_key then
-        local calibration_down=sr.Keyboard.button(state.calibration_key)
-        calibration_down=calibration_down==true or (type(calibration_down)=='number' and calibration_down>0)
-        if calibration_down and not state.calibration_down then
-            state.calibration=not state.calibration;state.last_draw=nil;state.rows=nil
-        end
-        state.calibration_down=calibration_down
-    end
     refresh()
-    if OUTPOST_DIAGNOSTIC then
-        local capture_down=sr.Keyboard.button(state.capture_key)
-        capture_down=capture_down==true or (type(capture_down)=='number' and capture_down>0)
-        if capture_down and not state.capture_down then
-            local captured,message=pcall(capture_outposts)
-            if not captured then state.capture_error=tostring(message) end
-        end
-        state.capture_down=capture_down
-    end
 end
 local function overlay_update()
     if not state.failed then

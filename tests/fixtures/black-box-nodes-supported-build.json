@@ -1,0 +1,222 @@
+{
+  "build": "1.8.46015.0",
+  "resource": "3de2415ea33b6897",
+  "nodes": [
+    {
+      "index": 0,
+      "name_hash": "0x4a182741",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 1,
+      "name_hash": "0x7f30e61c",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 2,
+      "name_hash": "0x3c9e8cfd",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 3,
+      "name_hash": "0x1d667f2e",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 4,
+      "name_hash": "0x690dfff9",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 5,
+      "name_hash": "0x41bfb4b6",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 6,
+      "name_hash": "0x6926b8e1",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 7,
+      "name_hash": "0x33718a1f",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 8,
+      "name_hash": "0xe76094db",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 9,
+      "name_hash": "0xa50d5f0a",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 10,
+      "name_hash": "0x84142745",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 11,
+      "name_hash": "0x7025c7ac",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 12,
+      "name_hash": "0x74b803fa",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 13,
+      "name_hash": "0xa3d491d1",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 14,
+      "name_hash": "0x315cd161",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 15,
+      "name_hash": "0x865adcb1",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 16,
+      "name_hash": "0x836cdcd0",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 17,
+      "name_hash": "0x540043fd",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 18,
+      "name_hash": "0x269ec131",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 19,
+      "name_hash": "0xd7fe65b8",
+      "local_translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 20,
+      "name_hash": "0x2a4d7550",
+      "local_translation": [
+        0.06360289,
+        -0.10500446,
+        -0.028246421
+      ]
+    },
+    {
+      "index": 21,
+      "name_hash": "0x2c0f297c",
+      "local_translation": [
+        0.106132016,
+        0.00024631526,
+        -0.038185388
+      ]
+    },
+    {
+      "index": 22,
+      "name_hash": "0x6fecebec",
+      "local_translation": [
+        -0.02876274,
+        0,
+        -0.07162584
+      ]
+    },
+    {
+      "index": 23,
+      "name_hash": "0x783a22c9",
+      "local_translation": [
+        0.106,
+        0,
+        -0.5811165
+      ]
+    }
+  ]
+}

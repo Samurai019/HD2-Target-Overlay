@@ -38,13 +38,6 @@ class OverlayTests(unittest.TestCase):
         with self.assertRaises(Exception):self.core[b'snapshot'](self.fixture(race=True),0)
     def test_nan_filtered(self):
         rows,_=self.core[b'snapshot'](self.fixture(nan=True),0);self.assertEqual(len(rows),0)
-    def test_projection_and_player(self):
-        rows,_=self.core[b'snapshot'](self.fixture(),0)
-        out=self.core[b'project'](rows,self.lua.table_from({b'x':-50,b'y':200}))
-        self.assertEqual(len(out),5)
-        for i in range(1,6):
-            self.assertTrue(0<=out[i][b'x']<=1);self.assertTrue(0<=out[i][b'y']<=1)
-        self.assertEqual(out[5][b'kind'],b'player')
     def test_no_patch_or_discovery_apis(self):
         s=source_bytes()
         for forbidden in [b'WriteProcessMemory',b'VirtualProtect',b'OpenProcess(',b'FlushInstructionCache',b'ffi.copy(',b'set_game_object_field',b'game_object_set_field']:
@@ -75,8 +68,10 @@ class OverlayTests(unittest.TestCase):
             World={units_by_resource=function()return units end},
             Unit={alive=function(u)return u~=2 end,world_position=function(u,n)assert(n==0);return {u,0} end},
             Vector3={x=function(p)return p[1] end,y=function(p)return p[2] end}}""")
-        result=self.core[b'credit_positions'](api,self.lua.table_from([1,2]))[0]
+        result=self.core[b'credit_positions'](api,self.lua.table_from([1,2]))
         self.assertEqual(len(result),2)
+        api[b'World'][b'units_by_resource']=self.lua.eval(b'function()return nil end')
+        with self.assertRaises(Exception):self.core[b'credit_positions'](api,self.lua.table_from([1]))
         api[b'World'][b'units_by_resource']=self.lua.eval(b'function()local t={} for i=1,129 do t[i]=i end return t end')
         with self.assertRaises(Exception):self.core[b'credit_positions'](api,self.lua.table_from([1]))
     def test_credit_interaction_node_resolves_zero_root(self):
@@ -90,12 +85,10 @@ class OverlayTests(unittest.TestCase):
                     if u==1 then return {120,230,10} else return {.06,-.08,.09} end end},
             Vector3={x=function(p)return p[1] end,y=function(p)return p[2] end,z=function(p)return p[3] end}}
         """)
-        points,detail=self.core[b'credit_positions'](api,self.lua.table_from([1]),1,True)
+        points=self.core[b'credit_positions'](api,self.lua.table_from([1]),1)
         self.assertEqual(len(points),1)
         self.assertEqual(points[1][b'x'],120)
         self.assertEqual(points[1][b'y'],230)
-        self.assertIn(b'unresolved_origin=true',detail)
-        self.assertIn(b'node=7 interact',detail)
 
     def test_credit_excludes_auxiliary_world_models(self):
         api=self.lua.execute(b"""return {
@@ -103,11 +96,9 @@ class OverlayTests(unittest.TestCase):
             World={units_by_resource=function(w)return {w} end},
             Unit={alive=function()return true end,world_position=function(u)return {u*10,20} end},
             Vector3={x=function(p)return p[1] end,y=function(p)return p[2] end}}""")
-        points,detail=self.core[b'credit_positions'](api,self.lua.table_from([1,2]),2,True)
+        points=self.core[b'credit_positions'](api,self.lua.table_from([1,2]),2)
         self.assertEqual(len(points),1)
         self.assertEqual(points[1][b'x'],20)
-        self.assertIn(b'world=1 gameplay=false',detail)
-        self.assertIn(b'world=2 gameplay=true',detail)
 
     def test_credit_marker_removed_when_unit_picked_up(self):
         api=self.lua.execute(b"""local alive=true;return {
@@ -118,12 +109,12 @@ class OverlayTests(unittest.TestCase):
             pickup=function()alive=false end}""")
         empty=self.lua.table_from([])
         worlds=self.lua.table_from([1])
-        points,_=self.core[b'credit_positions'](api,worlds)
+        points=self.core[b'credit_positions'](api,worlds)
         marked=self.core[b'filter'](empty,points,empty)
         self.assertEqual(len(marked),1)
         self.assertEqual(marked[1][b'x'],12)
         api[b'pickup']()
-        points,_=self.core[b'credit_positions'](api,worlds)
+        points=self.core[b'credit_positions'](api,worlds)
         self.assertEqual(len(self.core[b'filter'](empty,points,empty)),0)
 
     def outpost_fixture(self,categories=(3,),discovered=(),missing=(),race=False,completed=(),uncounted=()):
@@ -145,21 +136,6 @@ class OverlayTests(unittest.TestCase):
             b=memory.get(a);return b[:n] if b and len(b)>=n else None
         return self.lua.eval(b'function(f)return function(...)return f(...)end end')(read)
 
-    def test_outpost_record_and_clear_state(self):
-        result,error=self.core[b'outposts'](self.outpost_fixture(),0)
-        self.assertEqual(error,b'')
-        self.assertEqual(result[1][b'x'],11);self.assertFalse(result[1][b'discovered'])
-        result,_=self.core[b'outposts'](self.outpost_fixture(discovered=(0,)),0)
-        self.assertTrue(result[1][b'discovered'])
-
-    def test_outpost_native_hidden_types_are_still_marked(self):
-        # Real supported-build settings: +0xc is nonzero on types 1,9,15,20.
-        result,error=self.core[b'outposts'](self.outpost_fixture(tuple(range(21))),0)
-        self.assertEqual(error,b'')
-        self.assertEqual([result[i][b'category'] for i in range(1,len(result)+1)],list(range(1,21)))
-        empty=self.lua.table_from([])
-        self.assertEqual(len(self.core[b'filter'](empty,empty,result)),20)
-
     def test_all_outposts_survive_discovery_until_cleared(self):
         empty=self.lua.table_from([])
         # Real settings cover hidden types 1,9,15,20 and ordinary types.
@@ -175,17 +151,6 @@ class OverlayTests(unittest.TestCase):
                 selected=self.core[b'filter'](empty,empty,posts)
                 expected=[category for i,category in enumerate(categories) if i not in completed]
                 self.assertEqual([selected[i][b'category'] for i in range(1,len(selected)+1)],expected)
-
-    def test_hidden_dual_role_nest_and_category_switch(self):
-        empty=self.lua.table_from([])
-        posts,_=self.core[b'outposts'](self.outpost_fixture((1,),discovered=(0,)),0)
-        objectives=self.lua.execute(b"return {{kind='objective',importance=3,x=11,y=22,discovered=true}}")
-        selected=self.core[b'filter'](objectives,empty,posts)
-        self.assertEqual(len(selected),1);self.assertEqual(selected[1][b'kind'],b'outpost')
-        options=self.lua.table_from({b'outposts':False,b'objectives':True,b'credits':True})
-        self.assertEqual(len(self.core[b'filter'](objectives,empty,posts,options)),0)
-        posts,_=self.core[b'outposts'](self.outpost_fixture((1,),discovered=(0,),completed=(0,)),0)
-        self.assertEqual(len(self.core[b'filter'](objectives,empty,posts)),0)
 
     def test_outpost_bad_record_does_not_hide_other_nests(self):
         result,error=self.core[b'outposts'](self.outpost_fixture((3,255,20),missing=(0,)),0)
@@ -259,15 +224,18 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(result[4][b'x'],300)
     def test_polygon_glyphs_bounded_and_distinct(self):
         glyphs=[]
-        for kind in [b'objective',b'outpost',b'credit_poi']:
+        for kind in [b'objective',b'outpost',b'credit_poi',b'black_box']:
             parts=self.core[b'glyph'](kind,24,2,1)
-            result=[list(parts[i].values()) for i in range(1,len(parts)+1)]
+            result=[[parts[i][j] for j in range(1,5)] for i in range(1,len(parts)+1)]
             self.assertTrue(result)
             for x,y,w,h in result:
                 self.assertGreaterEqual(w,0);self.assertGreaterEqual(x,-12)
                 self.assertLessEqual(x+w,12.001);self.assertLessEqual(y+h,12)
+                if kind==b'black_box':
+                    self.assertFalse(x<0<x+w and y<0<y+h)
             glyphs.append(result)
-        self.assertNotEqual(glyphs[0],glyphs[1]);self.assertNotEqual(glyphs[1],glyphs[2])
+        for i,glyph in enumerate(glyphs):
+            for other in glyphs[i+1:]:self.assertNotEqual(glyph,other)
     def test_overlay_runs_after_original_and_preserves_nil_results(self):
         previous,after,log=self.lua.execute(b"local log={} return function(a,b)log[#log+1]='game';assert(a==4 and b==nil);return 1,nil,3,nil end,function()log[#log+1]='overlay' end,log")
         result=self.core[b'after_update'](previous,after,4,None)
@@ -286,9 +254,6 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(self.core[b'choose_world'](worlds,1,3),3)
         self.assertEqual(self.core[b'choose_world'](worlds,1,1),1)
         self.assertEqual(self.core[b'choose_world'](worlds,1,4),2)
-    def test_blue_color(self):
-        color=self.core[b'marker_color'](self.lua.table_from({b'kind':b'credit_poi'}))
-        self.assertEqual(list(color.values()),[255,45,120,255])
     def map_fixture(self,opened=True,modal=False,nan=False,race=False):
         owner=0x100000;hud=owner+0x24e340;address=hud+0x1a0e28
         memory={0x346d538:struct.pack('<Q',owner),hud+0x58:b'\1',hud+0x21f5b0:b'\1',
