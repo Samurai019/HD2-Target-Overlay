@@ -128,7 +128,7 @@ function Core.classify(read,base,rows,identity)
     Core.classify_pois(read,base,rows,identity)
     return rows
 end
-function Core.mission_rows(read,base,credits,options,black_boxes)
+function Core.mission_rows(read,base,credits,options,black_boxes,medals)
     local rows,identity=Core.snapshot(read,base)
     local errors={}
     local ok,message=pcall(Core.classify_objectives,read,base,rows,identity)
@@ -139,7 +139,7 @@ function Core.mission_rows(read,base,credits,options,black_boxes)
     local post_ok,posts,post_errors=pcall(Core.outposts,read,base)
     if not post_ok then errors[#errors+1]='OUTPOST: '..tostring(posts);posts={} end
     if post_ok and post_errors and post_errors~='' then errors[#errors+1]='OUTPOST: '..post_errors end
-    return Core.filter(rows,credits,posts,options,black_boxes),table.concat(errors,'\n')
+    return Core.filter(rows,credits,posts,options,black_boxes,medals),table.concat(errors,'\n')
 end
 function Core.outpost_types(read,base)
     -- +0x2a0 is a byte, so at most 256 entries are addressable. The supported
@@ -255,6 +255,10 @@ end
 function Core.credit_positions(api,list,main)
     return Core.model_positions(api,list,main,'bd6f4de16b9aedcd')
 end
+function Core.medal_positions(api,list,main)
+    -- ExplorationReward medals entity 147bd99513726f88 -> Unit model.
+    return Core.model_positions(api,list,main,'773c4184e4bad0df')
+end
 function Core.black_box_positions(api,list,main)
     -- UnitComponent data maps the carryable entities to this model resource.
     return Core.model_positions(api,list,main,'3de2415ea33b6897',
@@ -300,8 +304,8 @@ function Core.keep_location(row)
     if row.kind=='outpost' then return row.counts_as_outpost~=false and not row.completed end
     return not row.discovered
 end
-function Core.filter(rows,credits,outposts,options,black_boxes)
-    options=options or {outposts=true,objectives=true,credits=true,black_boxes=true}
+function Core.filter(rows,credits,outposts,options,black_boxes,medals)
+    options=options or {outposts=true,objectives=true,credits=true,black_boxes=true,medals=false}
     local selected={}
     for _,row in ipairs(rows) do
         if options.objectives and row.kind=='objective' and row.importance==3 and Core.keep_location(row)
@@ -319,6 +323,9 @@ function Core.filter(rows,credits,outposts,options,black_boxes)
     for _,credit in ipairs(options.credits and credits or {}) do
         selected[#selected+1]={x=credit.x,y=credit.y,kind='credit_poi'}
     end
+    for _,medal in ipairs(options.medals and medals or {}) do
+        selected[#selected+1]={x=medal.x,y=medal.y,kind='medal'}
+    end
     for _,box in ipairs(options.black_boxes and black_boxes or {}) do
         selected[#selected+1]={x=box.x,y=box.y,kind='black_box'}
     end
@@ -334,7 +341,9 @@ Core.option_specs={
     {key='credits',id='astla.target_overlay.credits',label='标记蓝币',
         description='标记已加载的超级货币模型。拾取后撤销蓝色标记。'},
     {key='black_boxes',id='astla.target_overlay.black_boxes',label='标记黑匣子',
-        description='用黄色空心菱形标记已加载且原版尚未标记的主线黑匣子。首次拾取后由原版标记接管，黄色标记撤销。'}
+        description='用黄色空心菱形标记已加载且原版尚未标记的主线黑匣子。首次拾取后由原版标记接管，黄色标记撤销。'},
+    {key='medals',id='astla.target_overlay.medals',label='标记勋章',default=false,
+        description='用金色八边形与蓝色绶带奖章标记已加载的勋章（Medal）。拾取后撤销，默认关闭。'}
 }
 function Core.menu_step(state,menu)
     if type(menu)~='table' or menu.api~=1 or type(menu.register_option)~='function' or
@@ -354,7 +363,7 @@ function Core.menu_step(state,menu)
             -- retry each frame or let a broken optional menu stop the overlay.
             state.option_links[spec.id]=false
             local ok,result,reason=pcall(menu.register_option,spec.id,{type='toggle',mod='Target Overlay',
-                label=spec.label,description=spec.description,default=true})
+                label=spec.label,description=spec.description,default=spec.default~=false})
             if ok and result==true then
                 local key=spec.key
                 local hooked,accepted=pcall(menu.on_change,spec.id,function(value) apply(key,value) end)
@@ -455,6 +464,7 @@ function Core.map_project(rows,view)
     return out
 end
 function Core.marker_color(p)
+    if p.kind=='medal' then return {255,255,165,50} end
     if p.kind=='black_box' then return {255,255,210,45} end
     if p.kind=='credit_poi' then return {255,45,120,255} end
     if p.kind=='outpost' or p.kind=='stalker_lair' then return {255,255,45,55} end
@@ -465,7 +475,23 @@ end
 function Core.glyph(kind,size,thickness,step)
     local count=kind=='outpost' and 6 or (kind=='credit_poi' and 3 or 4)
     local vertices={}
-    if kind=='black_box' then
+    if kind=='medal' then
+        local parts=Core.glyph('medal_ribbon',size,thickness,step)
+        for _,part in ipairs(parts) do part[5]={255,45,120,255} end
+        for _,part in ipairs(Core.glyph('medal_body',size,thickness,step)) do
+            part[5]={255,235,195,70};parts[#parts+1]=part
+        end
+        return parts
+    elseif kind=='medal_ribbon' then
+        -- Visible fabric above the medal; mirror below after rasterization.
+        vertices={{-.46,1},{0,.90},{.46,1},{.46,.60},{0,.79},{-.46,.60}}
+    elseif kind=='medal_body' then
+        -- Complete eight-edge gold ring, including the edges across the ribbon.
+        for i=0,7 do
+            local angle=math.pi/2+i*math.pi/4
+            vertices[#vertices+1]={.79*math.cos(angle),.79*math.sin(angle)}
+        end
+    elseif kind=='black_box' then
         vertices={{0,1},{-1,0},{0,-1},{1,0}}
     elseif kind=='stalker_lair' then
         -- Eight outer tips, alternating with deep valleys; a hollow contour.
@@ -495,7 +521,7 @@ function Core.glyph(kind,size,thickness,step)
     end
     local result={};local radius=size/2
     for y=-radius,radius-step,step do
-        local inner=span(y+step/2,math.max(0,radius-thickness))
+        local inner=kind=='medal_ribbon' and {} or span(y+step/2,math.max(0,radius-thickness))
         for _,outer in ipairs(span(y+step/2,radius)) do
             local cursor,right=outer[1],outer[2]
             for _,hole in ipairs(inner) do
@@ -506,6 +532,12 @@ function Core.glyph(kind,size,thickness,step)
                 end
             end
             if cursor<right then result[#result+1]={cursor,y,right-cursor,step} end
+        end
+    end
+    if kind=='medal_ribbon' then
+        local count=#result
+        for i=1,count do
+            local p=result[i];result[#result+1]={p[1],-p[2]-p[4],p[3],p[4]}
         end
     end
     return result
@@ -542,7 +574,7 @@ function Core.choose_world(list,main,last)
 end
 if rawget(_G,'HD2OverlayTest') then return Core end
 if rawget(_G,'HD2TargetOverlay') then return end
-local state={frame=0,enabled=true,ids={},phase='starting',options={outposts=true,objectives=true,credits=true,black_boxes=true}}
+local state={frame=0,enabled=true,ids={},phase='starting',options={outposts=true,objectives=true,credits=true,black_boxes=true,medals=false}}
 _G.HD2TargetOverlay=state
 local function status(phase,message)
     if state.phase==phase and state.message==message then return end
@@ -660,7 +692,7 @@ local function draw(rows,view,list)
         local step=math.max(1,view.icon_scale)
         for _,spec in ipairs({{size+4*edge,4*edge,{255,0,0,0},Core.layers.outline},{size,edge,color,Core.layers.symbol}}) do
             for _,part in ipairs(Core.glyph(p.kind,spec[1],spec[2],step)) do
-                if part[3]>0 then rect(px+part[1],py+part[2],part[3],part[4],spec[3],spec[4]) end
+                if part[3]>0 then rect(px+part[1],py+part[2],part[3],part[4],spec[4]==Core.layers.symbol and (part[5] or spec[3]) or spec[3],spec[4]) end
             end
         end
     end
@@ -686,6 +718,10 @@ local function refresh()
             if state.options.credits then credit_ok,credits=pcall(Core.credit_positions,sr,list,sr.Application.main_world()) end
             state.credit_error=not credit_ok and tostring(credits) or nil
             state.credit_count=credit_ok and #credits or 0
+            local medal_ok,medals=true,{}
+            if state.options.medals then medal_ok,medals=pcall(Core.medal_positions,sr,list,sr.Application.main_world()) end
+            state.medal_error=not medal_ok and tostring(medals) or nil
+            state.medal_count=medal_ok and #medals or 0
             local box_ok,boxes=true,{}
             if state.options.black_boxes then
                 box_ok,boxes=pcall(function()
@@ -695,7 +731,7 @@ local function refresh()
             end
             state.black_box_error=not box_ok and tostring(boxes) or nil
             state.black_box_count=box_ok and #boxes or 0
-            local selected,errors=Core.mission_rows(read,base,credit_ok and credits or {},state.options,box_ok and boxes or {})
+            local selected,errors=Core.mission_rows(read,base,credit_ok and credits or {},state.options,box_ok and boxes or {},medal_ok and medals or {})
             state.category_error=errors~='' and errors or nil
             return selected
         end)

@@ -25,11 +25,11 @@ def main():
     struct.pack_into('<IIQIIII',data,72,0,0,0xa14e8dfa2cd117e2,1,0,16,16)
     struct.pack_into('<7Q6I',data,104,resource_hash(name),0xa14e8dfa2cd117e2,offset,0,0,0,0,len(payload),0,0,16,16,0)
     data[offset:offset+len(payload)]=payload
-    title='Target Overlay 1.2.0'
-    description='Minimap overlay for counted outposts, the Stalker Lair side objective (a dedicated hollow red eight-point star), undiscovered side objectives loaded super-credit models and main-mission black-box models (hollow yellow diamonds). Other mission-attached holes are excluded. Red markers remain until cleared; white markers disappear on discovery; credit markers disappear on pickup; black-box markers disappear when the native black-box marker takes over. HUD curvature alignment follows the live setting and has been confirmed in-game. Four independent toggles in the optional Mod Options Menu (requires Bingus Shared Loader v18+). F7 toggles the overlay. Read-only game access. Requires Bingus Shared Loader v15+ and game build 1.8.46015.0.'
+    title='Target Overlay 1.3.0'
+    description='Minimap overlay for counted outposts, the Stalker Lair side objective (a dedicated hollow red eight-point star), undiscovered side objectives loaded super-credit models and main-mission black-box models (hollow yellow diamonds). Other mission-attached holes are excluded. Red markers remain until cleared; white markers disappear on discovery; credit markers disappear on pickup; black-box markers disappear when the native black-box marker takes over. HUD curvature alignment follows the live setting and has been confirmed in-game. Medals use a dedicated gold octagonal medal icon with blue ribbons, follow loaded model presence and pickup, and are disabled by default. Five independent toggles in the optional Mod Options Menu (requires Bingus Shared Loader v18+). F7 toggles the overlay. Read-only game access. Requires Bingus Shared Loader v15+ and game build 1.8.46015.0.'
     manifest={'Version':1,'Guid':'ad42316a-e57c-4aa6-a4ec-987ce39de584','Name':title,'Description':description,
       'Options':[{'Name':title,'Description':description,'Include':['Addon']}]}
-    path=ROOT/'dist/Target-Overlay-1.2.0.zip'
+    path=ROOT/'dist/Target-Overlay-1.3.0.zip'
     with zipfile.ZipFile(path,'w',zipfile.ZIP_DEFLATED) as z:
         z.writestr('manifest.json',json.dumps(manifest,indent=2))
         z.writestr('Addon/9ba626afa44a3aa3.patch_0',data)

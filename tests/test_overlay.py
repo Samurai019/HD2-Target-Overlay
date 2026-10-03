@@ -224,7 +224,7 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(result[4][b'x'],300)
     def test_polygon_glyphs_bounded_and_distinct(self):
         glyphs=[]
-        for kind in [b'objective',b'outpost',b'credit_poi',b'black_box']:
+        for kind in [b'objective',b'outpost',b'credit_poi',b'black_box',b'medal']:
             parts=self.core[b'glyph'](kind,24,2,1)
             result=[[parts[i][j] for j in range(1,5)] for i in range(1,len(parts)+1)]
             self.assertTrue(result)
