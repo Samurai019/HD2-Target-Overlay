@@ -34,6 +34,7 @@ class MedalTests(unittest.TestCase):
     def test_runtime_skips_disabled_query_and_isolates_failure(self):
         fixture=test_release_runtime.ReleaseRuntimeTests(); fixture.setUp()
         tick,api,state,refresh,setval=fixture.runtime()
+        setval(tick,b'clock',fixture.lua.eval(b'function()local t=0;return function()t=t+0.21;return t end end')())
         core=fixture.lua.eval(b"""function(fn)
             for i=1,100 do local n,v=debug.getupvalue(fn,i);if n=='Core' then return v end end
         end""")(refresh)
@@ -41,10 +42,10 @@ class MedalTests(unittest.TestCase):
         core[b'medal_positions']=fixture.lua.eval(b"function() query_calls=query_calls+1;error('query failed') end")
         core[b'mission_rows']=fixture.lua.eval(b"function(r,b,c,o,boxes,medals) assert(#medals==0);return {{kind='objective',x=0,y=0}},'' end")
         self.assertFalse(state[b'options'][b'medals'])
-        tick()
+        for _ in range(4):tick()
         self.assertEqual(fixture.lua.globals()[b'query_calls'],0)
         state[b'options'][b'medals']=True;state[b'rows']=None
-        tick()
+        for _ in range(4):tick()
         self.assertEqual(fixture.lua.globals()[b'query_calls'],1)
         self.assertIn(b'query failed',state[b'medal_error'])
         self.assertEqual(state[b'rows'][1][b'kind'],b'objective')

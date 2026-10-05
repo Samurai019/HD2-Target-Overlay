@@ -23,7 +23,9 @@ local function u32(s,o)
 end
 local function ptr(s,o,label)
     local n=u32(s,o)+u32(s,o+4)*4294967296
-    assert(n>=65536 and n<140737488355328 and n%4==0,(label or 'pointer')..string.format(' invalid: 0x%x',n))
+    if not (n>=65536 and n<140737488355328 and n%4==0) then
+        error((label or 'pointer')..string.format(' invalid: 0x%x',n))
+    end
     return n
 end
 local function f32(s,o)
@@ -33,11 +35,14 @@ local function f32(s,o)
     if exp==0 then return sign*mant*2^-149 end
     return sign*(1+mant/8388608)*2^(exp-127)
 end
-function Core.snapshot(read,base)
+function Core.snapshot(read,base,objectives_only)
     local rows,identity={},{}
     local specs={{rva=0x3326590,count=12,array=72,stride=20,kind='marker'},
                  {rva=0x3326da0,count=36,array=104,stride=100,kind='objective'}}
     for _,s in ipairs(specs) do
+        if objectives_only and s.kind=='marker' then
+            identity[#identity+1]=string.rep('\0',8)
+        else
         local root=assert(read(base+s.rva,8),'manager unavailable')
         local address=ptr(root,0)
         local head=assert(read(address,112),'header unavailable')
@@ -62,6 +67,7 @@ function Core.snapshot(read,base)
             end
         end
         assert(read(base+s.rva,8)==root and read(address,112)==head,'scene changed during read')
+        end
     end
     return rows,table.concat(identity)
 end
@@ -138,14 +144,18 @@ function Core.classify(read,base,rows,identity)
     return rows
 end
 function Core.mission_rows(read,base,credits,options,black_boxes,medals)
-    local rows,identity=Core.snapshot(read,base)
+    if options and not options.objectives and not options.outposts then
+        return Core.filter({},credits,{},options,black_boxes,medals),''
+    end
+    local rows,identity=Core.snapshot(read,base,true)
     local errors={}
     local ok,message=pcall(Core.classify_objectives,read,base,rows,identity)
     if not ok then
         errors[#errors+1]='SIDE: '..tostring(message)
         for _,row in ipairs(rows) do row.importance=nil;row.stalker_lair=false end
     end
-    local post_ok,posts,post_errors=pcall(Core.outposts,read,base)
+    local post_ok,posts,post_errors=true,{},nil
+    if not options or options.outposts then post_ok,posts,post_errors=pcall(Core.outposts,read,base) end
     if not post_ok then errors[#errors+1]='OUTPOST: '..tostring(posts);posts={} end
     if post_ok and post_errors and post_errors~='' then errors[#errors+1]='OUTPOST: '..post_errors end
     return Core.filter(rows,credits,posts,options,black_boxes,medals),table.concat(errors,'\n')
@@ -220,6 +230,7 @@ function Core.model_positions(api,list,main,resource_hex,position_node)
     for _,world in pairs(list) do
         worlds_seen=worlds_seen+1;assert(worlds_seen<=8,'too many worlds')
         local gameplay=main==nil or world==main
+        if gameplay then
         local units=api.World.units_by_resource(world,resource)
         assert(type(units)=='table','resource query unavailable')
         local count=0
@@ -257,6 +268,7 @@ function Core.model_positions(api,list,main,resource_hex,position_node)
                     if selected then points[#points+1]={x=x,y=y} end
                 end
             end
+        end
         end
     end
     return points
@@ -389,7 +401,7 @@ function Core.menu_step(state,menu)
     end
 end
 -- Native mission HUD is embedded in the UI owner; all reads are bounded.
-function Core.map_view(read,base,width,height)
+function Core.map_gate(read,base)
     local root=assert(read(base+0x346d538,8),'UI owner unavailable')
     local owner=ptr(root,0)
     local hud=owner+0x24e340
@@ -405,6 +417,11 @@ function Core.map_view(read,base,width,height)
     local modal=ptr(assert(read(base+0x347ce28,8),'modal owner unavailable'),0)
     local modal_state=assert(read(modal+0x4294,8),'modal state unavailable')
     if u32(modal_state,0)~=0 or u32(modal_state,4)~=0 then return nil end
+    return map,head,root,screens
+end
+function Core.map_view(read,base,width,height)
+    local map,head,root,screens=Core.map_gate(read,base)
+    if not map then return nil end
     local function value(o)
         local v=assert(f32(head,o),'invalid map value')
         assert(math.abs(v)<100000,'map value out of range');return v
@@ -462,7 +479,7 @@ function Core.map_project(rows,view)
         local inside=true
         -- Test actual GUI corners through the inverse deformation against the
         -- original circle, so the curved edge cannot expose outside markers.
-        for _,sx in ipairs({-1,1}) do for _,sy in ipairs({-1,1}) do
+        for sx=-1,1,2 do for sy=-1,1,2 do
             local cx,cy=Core.hud_warp(px+sx*half,py+sy*half,view,true)
             if (cx-view.cx)^2+(cy-view.cy)^2>view.radius^2 then inside=false end
         end end
@@ -558,6 +575,87 @@ function Core.draw_key(projected)
     end
     return table.concat(keys,';')
 end
+-- Cache only the current resolution's shapes; never retain engine Vector/Color
+-- temporaries across frames. Merge identical adjacent scanlines losslessly.
+function Core.compact_glyph(parts)
+    local result,previous={},{}
+    for _,p in ipairs(parts) do
+        if p[3]>0 then
+            local color=p[5]
+            local key=string.format('%.17g:%.17g',p[1],p[3])
+            if color then key=key..':'..table.concat(color,':') end
+            local prior=previous[key]
+            if prior and prior[2]+prior[4]==p[2] then
+                prior[4]=prior[4]+p[4]
+            else
+                local copy={p[1],p[2],p[3],p[4],color}
+                result[#result+1]=copy;previous[key]=copy
+            end
+        end
+    end
+    return result
+end
+function Core.marker_parts(cache,p,scale)
+    if cache.scale~=scale then cache.scale=scale;cache.shapes={} end
+    local key=p.kind..':'..string.format('%.17g',p.size)
+    local parts=cache.shapes[key]
+    if parts then return parts end
+    parts={}
+    local edge=math.max(2,2*scale)
+    for _,spec in ipairs({{p.size+4*edge,4*edge,{255,0,0,0},Core.layers.outline},
+                          {p.size,edge,Core.marker_color(p),Core.layers.symbol}}) do
+        for _,part in ipairs(Core.compact_glyph(Core.glyph(p.kind,spec[1],spec[2],math.max(1,scale)))) do
+            parts[#parts+1]={part[1],part[2],part[3],part[4],
+                spec[4]==Core.layers.symbol and (part[5] or spec[3]) or spec[3],spec[4]}
+        end
+    end
+    cache.shapes[key]=parts
+    return parts
+end
+-- Reuse retained rectangles and touch only changed ones. Some game builds may
+-- omit update_rect; keep the established destroy/create path as a fallback.
+function Core.draw_rect(state,api,index,x,y,part)
+    state.rects=state.rects or {}
+    local old=state.rects[index]
+    if old and old.x==x and old.y==y and old.part==part then return end
+    local color=part[5]
+    local pos=api.Vector3(x,y,part[6])
+    local size=api.Vector2(part[3],part[4])
+    local tint=api.Color(color[1],color[2],color[3],color[4])
+    local id=state.ids[index]
+    local updated=false
+    if id and not state.update_rect_unavailable and type(api.Gui.update_rect)=='function' then
+        updated=pcall(api.Gui.update_rect,state.gui,id,pos,size,tint)
+        if not updated then state.update_rect_unavailable=true end
+    end
+    if not updated then
+        if id then api.Gui.destroy_rect(state.gui,id);state.ids[index]=nil end
+        state.ids[index]=assert(api.Gui.rect(state.gui,pos,size,tint),'rectangle creation failed')
+    end
+    state.rects[index]={x=x,y=y,part=part}
+end
+local VIEW_FIELDS={'origin_x','origin_y','pan_x','pan_y','scale','cx','cy','radius',
+    'map_address','width','height','hud_curve','xx','xy','yx','yy','tx','ty','icon_scale'}
+function Core.same_view(a,b)
+    if not a or not b then return false end
+    for _,key in ipairs(VIEW_FIELDS) do if a[key]~=b[key] then return false end end
+    return true
+end
+function Core.same_rows(a,b)
+    if not a or #a~=#b then return false end
+    for i,p in ipairs(a) do
+        local q=b[i]
+        if p.x~=q.x or p.y~=q.y or p.kind~=q.kind or p.completed~=q.completed then return false end
+    end
+    return true
+end
+function Core.options_key(options)
+    local key=0
+    for i,spec in ipairs(Core.option_specs) do
+        if options[spec.key] then key=key+2^(i-1) end
+    end
+    return key
+end
 function Core.project(rows,player)
     local xmin,xmax,ymin,ymax
     for _,p in ipairs(rows) do
@@ -583,7 +681,7 @@ function Core.choose_world(list,main,last)
 end
 if rawget(_G,'HD2OverlayTest') then return Core end
 if rawget(_G,'HD2TargetOverlay') then return end
-local state={frame=0,enabled=true,ids={},phase='starting',options={outposts=true,objectives=true,credits=true,black_boxes=true,medals=false}}
+local state={version='1.3.3',frame=0,enabled=true,ids={},phase='starting',options={outposts=true,objectives=true,credits=true,black_boxes=true,medals=false}}
 _G.HD2TargetOverlay=state
 local function status(phase,message)
     if state.phase==phase and state.message==message then return end
@@ -591,6 +689,7 @@ local function status(phase,message)
 
 end
 local ffi,crypto,kernel,base,read,sr
+local clock=os.clock
 -- HASH_HELPER is inserted by build_overlay.py (read-only CryptoAPI SHA256).
 local function hash_file(path)
     local provider,hash=ffi.new('uintptr_t[1]'),ffi.new('uintptr_t[1]')
@@ -628,8 +727,10 @@ local function init()
       int CryptHashData(uintptr_t,const unsigned char *,unsigned long,unsigned long);
       int CryptGetHashParam(uintptr_t,unsigned long,unsigned char *,unsigned long *,unsigned long);
       int CryptDestroyHash(uintptr_t);int CryptReleaseContext(uintptr_t,unsigned long);
+      uint64_t GetTickCount64(void);
     ]]
     kernel,crypto=ffi.load('kernel32'),ffi.load('advapi32')
+    clock=function() return tonumber(kernel.GetTickCount64())/1000 end
     local loader=rawget(_G,'CowboyBingusModLoader')
     assert(type(loader)=='table' and tonumber(loader.api) and loader.api>=1,'Loader API 1 required')
     status('VERIFYING','Checking game build; no code or discovery writes')
@@ -662,10 +763,13 @@ local function live(list,world)
     return false
 end
 local function clear(list)
+    state.draw_rows,state.draw_view=nil,nil
+    if #state.ids==0 then return end
     if state.gui and live(list,state.world) then
         for _,id in ipairs(state.ids) do pcall(sr.Gui.destroy_rect,state.gui,id) end
     end
     state.ids={}
+    state.rects={}
     state.last_draw=nil
 end
 local function release(list)
@@ -680,7 +784,6 @@ local function install_render_tracking()
     if type(original)~='function' then return end
     local tracer=function(world,...)
         if state.in_render then
-            state.render_order[#state.render_order+1]=world
             state.last_render_world=world
         end
         return original(world,...)
@@ -692,7 +795,7 @@ local function install_render_tracking()
     if type(original_render)=='function' then
         local render_wrapper
         render_wrapper=function(...)
-            state.render_order={};state.in_render=true
+            state.in_render=true
             local function finish(...)
                 state.in_render=false
                 return ...
@@ -709,69 +812,88 @@ local function draw(rows,view,list)
     if not target or not live(list,target) then return end
     if state.world~=target then release(list) end
     if not state.gui then state.gui=assert(sr.World.create_screen_gui(target,'scale',1,1));state.world=target end
+    if state.draw_rows==rows and Core.same_view(state.draw_view,view) then return end
     local projected=Core.map_project(rows,view)
-    local signature=Core.draw_key(projected)
-    if state.last_draw==signature then return end
-    clear(list)
-    local function rect(px,py,w,h,c,layer)
-        local id=sr.Gui.rect(state.gui,sr.Vector3(px,py,layer or 100),sr.Vector2(w,h),sr.Color(c[1],c[2],c[3],c[4]))
-        assert(id~=nil,'rectangle creation failed');state.ids[#state.ids+1]=id
-    end
+    state.glyph_cache=state.glyph_cache or {}
+    local index=0
     for _,p in ipairs(projected) do
-        local px,py=p.x,p.y
-        local size=p.size
-        local edge=math.max(2,2*view.icon_scale)
-        local color=Core.marker_color(p)
-        local step=math.max(1,view.icon_scale)
-        for _,spec in ipairs({{size+4*edge,4*edge,{255,0,0,0},Core.layers.outline},{size,edge,color,Core.layers.symbol}}) do
-            for _,part in ipairs(Core.glyph(p.kind,spec[1],spec[2],step)) do
-                if part[3]>0 then rect(px+part[1],py+part[2],part[3],part[4],spec[4]==Core.layers.symbol and (part[5] or spec[3]) or spec[3],spec[4]) end
-            end
+        for _,part in ipairs(Core.marker_parts(state.glyph_cache,p,view.icon_scale)) do
+            index=index+1
+            Core.draw_rect(state,sr,index,p.x+part[1],p.y+part[2],part)
         end
     end
-    state.last_draw=signature
+    for i=#state.ids,index+1,-1 do
+        sr.Gui.destroy_rect(state.gui,state.ids[i]);state.ids[i]=nil;state.rects[i]=nil
+    end
+    state.draw_rows,state.draw_view=rows,view
 end
-local function refresh()
+-- Spread native resource queries over separate display updates. Never catch up
+-- missed deadlines or retry a failed snapshot every game frame.
+local function collect_rows(list,main,now)
+    local job=state.query
+    if not job then
+        if now<(state.next_query or 0) then return end
+        job={stage=1,credits={},medals={},boxes={}};state.query=job
+        state.next_query=now+2
+    end
+    local stage=job.stage
+    if stage==1 then
+        local ok,value=true,{}
+        if state.options.credits then ok,value=pcall(Core.credit_positions,sr,list,main) end
+        state.credit_error=not ok and tostring(value) or nil
+        job.credits=ok and value or {};state.credit_count=#job.credits
+    elseif stage==2 then
+        local ok,value=true,{}
+        if state.options.medals then ok,value=pcall(Core.medal_positions,sr,list,main) end
+        state.medal_error=not ok and tostring(value) or nil
+        job.medals=ok and value or {};state.medal_count=#job.medals
+    elseif stage==3 then
+        local ok,value=true,{}
+        if state.options.black_boxes then
+            ok,value=pcall(function()
+                return Core.unmarked_black_boxes(read,base,Core.black_box_positions(sr,list,main))
+            end)
+        end
+        state.black_box_error=not ok and tostring(value) or nil
+        job.boxes=ok and value or {};state.black_box_count=#job.boxes
+    else
+        local ok,rows,errors=pcall(Core.mission_rows,read,base,job.credits,state.options,job.boxes,job.medals)
+        state.category_error=ok and errors~='' and errors or nil
+        state.snapshot_error=not ok and tostring(rows) or state.category_error
+        rows=ok and rows or {}
+        if not Core.same_rows(state.rows,rows) then state.rows=rows end
+        state.query=nil
+        return
+    end
+    job.stage=stage+1
+end
+local function reset_queries()
+    state.rows,state.query,state.next_query=nil,nil,nil
+    state.query_world,state.query_map,state.query_options=nil,nil,nil
+end
+local function refresh(now)
+    now=now or clock()
     local list=worlds()
-    if not state.enabled then clear(list);state.rows=nil;status('HIDDEN','F7 enables overlay');return end
+    if not state.enabled then clear(list);reset_queries();status('HIDDEN','F7 enables overlay');return end
     local width,height=sr.Gui.resolution()
     assert(type(width)=='number' and type(height)=='number' and width>0 and height>0,'invalid screen size')
     local valid,view=pcall(Core.map_view,read,base,width,height)
     if not valid or not view then
         clear(list)
-        state.rows=nil
+        reset_queries()
         local detail=not valid and tostring(view) or 'Native minimap closed or HUD hidden'
         status('MAP_HIDDEN',detail)
         return
     end
-    local ok,rows=true,state.rows
-    if not rows or state.frame%30==0 then
-        ok,rows=pcall(function()
-            local credit_ok,credits=true,{}
-            if state.options.credits then credit_ok,credits=pcall(Core.credit_positions,sr,list,sr.Application.main_world()) end
-            state.credit_error=not credit_ok and tostring(credits) or nil
-            state.credit_count=credit_ok and #credits or 0
-            local medal_ok,medals=true,{}
-            if state.options.medals then medal_ok,medals=pcall(Core.medal_positions,sr,list,sr.Application.main_world()) end
-            state.medal_error=not medal_ok and tostring(medals) or nil
-            state.medal_count=medal_ok and #medals or 0
-            local box_ok,boxes=true,{}
-            if state.options.black_boxes then
-                box_ok,boxes=pcall(function()
-                    local positions=Core.black_box_positions(sr,list,sr.Application.main_world())
-                    return Core.unmarked_black_boxes(read,base,positions)
-                end)
-            end
-            state.black_box_error=not box_ok and tostring(boxes) or nil
-            state.black_box_count=box_ok and #boxes or 0
-            local selected,errors=Core.mission_rows(read,base,credit_ok and credits or {},state.options,box_ok and boxes or {},medal_ok and medals or {})
-            state.category_error=errors~='' and errors or nil
-            return selected
-        end)
-        state.rows=ok and rows or nil
+    local main=sr.Application.main_world()
+    local options=Core.options_key(state.options)
+    if state.query_world~=main or state.query_map~=view.map_address or state.query_options~=options then
+        clear(list);reset_queries()
+        state.query_world,state.query_map,state.query_options=main,view.map_address,options
     end
-    state.snapshot_error=not ok and tostring(rows) or state.category_error
-    if not ok or #rows==0 then
+    collect_rows(list,main,now)
+    local rows=state.rows
+    if not rows or #rows==0 then
         clear(list);status('WAITING','No validated mission coordinates; panel cleared');return
     end
     draw(rows,view,list)
@@ -783,7 +905,7 @@ local worker=coroutine.create(init)
 local wrapper
 local function tick()
     state.frame=state.frame+1
-    if not state.options_menu or state.frame%30==0 then Core.menu_step(state,rawget(_G,'ModOptionsMenu')) end
+    if state.frame==1 or state.frame%30==0 then Core.menu_step(state,rawget(_G,'ModOptionsMenu')) end
     if worker then
         if state.frame<120 then return end
         local ok,message=coroutine.resume(worker)
@@ -793,9 +915,25 @@ local function tick()
     end
     local down=sr.Keyboard.button(state.key)
     down=down==true or (type(down)=='number' and down>0)
-    if down and not state.down then state.enabled=not state.enabled;state.frame=0 end
+    local toggled=down and not state.down
+    if toggled then state.enabled=not state.enabled end
     state.down=down
-    refresh()
+    if not state.enabled and not toggled then return end
+    local now=clock()
+    if toggled or now>=(state.next_display or 0) then
+        state.next_display=now+0.2
+        state.next_visibility=now+0.1
+        refresh(now)
+    elseif #state.ids>0 and now>=(state.next_visibility or 0) then
+        -- Cheap visibility-only check between slower display updates. No
+        -- transforms, model queries, projection or rectangle traversal.
+        state.next_visibility=now+0.1
+        local ok,map=pcall(Core.map_gate,read,base)
+        if not ok or not map or map~=state.query_map then
+            clear(worlds());reset_queries()
+            status('MAP_HIDDEN','Native minimap closed or HUD changed')
+        end
+    end
 end
 local function overlay_update()
     if not state.failed then
