@@ -41,21 +41,21 @@ class ReleaseRuntimeTests(unittest.TestCase):
                     destroy_rect=function()stats.destroyed=stats.destroyed+1 end},
                 Vector3=function(...)return {...}end,Vector2=function(...)return {...}end,Color=function(...)return {...}end}
         """)
-        setval(tick,b'worker',None);setval(tick,b'sr',api)
-        refresh=find(tick,b'refresh');setval(refresh,b'read',self.fixture.map_fixture());setval(refresh,b'base',0)
-        state=lua.globals()[b'HD2TargetOverlay'];state[b'key']=7
+        setval(tick,b'worker',None)
+        refresh=find(tick,b'refresh');setval(refresh,b'sr',api);setval(refresh,b'read',self.fixture.map_fixture());setval(refresh,b'base',0)
+        state=lua.globals()[b'HD2TargetOverlay']
         return tick,api,state,refresh,setval
 
-    def test_formal_build_ignores_f8_f9_and_writes_no_diagnostic_files(self):
+    def test_formal_build_has_no_hotkeys_and_writes_no_diagnostic_files(self):
         source=source_bytes()
-        for removed in [b'OUTPOST_DIAGNOSTIC',b'capture_outposts',b'calibration_points',b'calibration_rects',b"button_id('f8')",b"button_id('f9')",b"io.open(path,'wb')"]:
+        for removed in [b'OUTPOST_DIAGNOSTIC',b'capture_outposts',b'calibration_points',b'calibration_rects',b"button_id('f7')",b"button_id('f8')",b"button_id('f9')",b'sr.Keyboard',b"io.open(path,'wb')"]:
             self.assertNotIn(removed,source)
         tick,api,state,_,_=self.runtime()
-        api[b'keys'][8]=True;api[b'keys'][9]=True
+        api[b'keys'][7]=True;api[b'keys'][8]=True;api[b'keys'][9]=True
         with tempfile.TemporaryDirectory() as directory:
             self.lua.globals()[b'CowboyBingusModLoader']=self.lua.table_from({b'log_directory':directory.encode()})
             tick();tick()
-            self.assertEqual(list(api[b'stats'][b'queried'].values()),[7,7])
+            self.assertEqual(list(api[b'stats'][b'queried'].values()),[])
             self.assertIsNone(state[b'calibration'])
             self.assertIsNone(state[b'capture_path'])
             self.assertEqual(list(Path(directory).iterdir()),[])

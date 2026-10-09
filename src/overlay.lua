@@ -357,28 +357,50 @@ Core.option_specs={
     {key='medals',id='astla.target_overlay.medals',label='标记勋章',default=false,
         description='用金色八边形与蓝色绶带奖章标记已加载的勋章（Medal）。拾取后撤销，默认关闭。'}
 }
+Core.rate_specs={
+    {key='refresh_hz',id='astla.target_overlay.refresh_hz',type='slider',label='刷新频率（次/秒）',default=5,max=60,
+        description='平时地图图标的显示更新频率，范围1–60次/秒。默认5；目标位置查询仍每2秒进行一次。'},
+    {key='boost_hz',id='astla.target_overlay.boost_hz',type='slider',label='临时提速刷新频率（次/秒）',default=60,max=120,
+        description='打开、关闭、放大、缩小地图时的显示更新频率，范围1–120次/秒。默认60，最后一次操作后半秒恢复普通频率。'}
+}
+Core.menu_specs={}
+for _,group in ipairs({Core.option_specs,Core.rate_specs}) do
+    for _,spec in ipairs(group) do Core.menu_specs[#Core.menu_specs+1]=spec end
+end
+function Core.display_interval(state,now)
+    local boosted=now<(state.fast_until or 0)
+    return 1/(state.options[boosted and 'boost_hz' or 'refresh_hz'] or (boosted and 60 or 5))
+end
 function Core.menu_step(state,menu)
     if type(menu)~='table' or menu.api~=1 or type(menu.register_option)~='function' or
         type(menu.get)~='function' or type(menu.on_change)~='function' then return end
     if state.options_menu~=menu then
         state.options_menu=menu;state.option_links={};state.options_error=nil
     end
-    local function apply(key,value)
-        if type(value)=='boolean' and state.options[key]~=value then
-            state.options[key]=value;state.rows=nil
+    local function apply(spec,value)
+        if spec.type=='slider' then
+            if type(value)=='number' and value==value and value>=1 and value<=spec.max and value%1==0 and
+                state.options[spec.key]~=value then
+                state.options[spec.key]=value;state.next_display=0
+            end
+        elseif type(value)=='boolean' and state.options[spec.key]~=value then
+            state.options[spec.key]=value;state.rows=nil
         end
     end
-    for _,spec in ipairs(Core.option_specs) do
+    for _,spec in ipairs(Core.menu_specs) do
         local link=state.option_links[spec.id]
         if link==nil then
             -- Registration failures are terminal for this API instance; don't
             -- retry each frame or let a broken optional menu stop the overlay.
             state.option_links[spec.id]=false
-            local ok,result,reason=pcall(menu.register_option,spec.id,{type='toggle',mod='Target Overlay',
-                label=spec.label,description=spec.description,default=spec.default~=false})
+            local config={type=spec.type or 'toggle',mod='Target Overlay',label=spec.label,description=spec.description}
+            if spec.type=='slider' then
+                config.min,config.max,config.step,config.default=1,spec.max,1,spec.default
+            else config.default=spec.default~=false end
+            local ok,result,reason=pcall(menu.register_option,spec.id,config)
             if ok and result==true then
-                local key=spec.key
-                local hooked,accepted=pcall(menu.on_change,spec.id,function(value) apply(key,value) end)
+                local option=spec
+                local hooked,accepted=pcall(menu.on_change,spec.id,function(value) apply(option,value) end)
                 state.option_links[spec.id]=true
                 if not hooked or accepted~=true then state.options_error='Menu callback unavailable: '..spec.id end
             else state.options_error='Menu registration failed: '..spec.id..': '..tostring(ok and reason or result) end
@@ -387,7 +409,7 @@ function Core.menu_step(state,menu)
             -- Also covers saved values on registration and programmatic set(),
             -- which intentionally does not invoke menu callbacks.
             local ok,value=pcall(menu.get,spec.id)
-            if ok then apply(spec.key,value) end
+            if ok then apply(spec,value) end
         end
     end
 end
@@ -410,6 +432,12 @@ function Core.map_gate(read,base)
     if u32(modal_state,0)~=0 or u32(modal_state,4)~=0 then return nil end
     return map,head,root,screens
 end
+-- The native close handler clears +0x195 before the widget's exit animation.
+-- Check only while overlay rectangles exist: two bounded reads, no transforms.
+function Core.map_is_open(read,base,map,owner)
+    if not map or not owner or read(base+0x346d538,8)~=owner then return false end
+    return read(map+0x195,1)==string.char(1)
+end
 function Core.map_view(read,base,width,height)
     local map,head,root,screens=Core.map_gate(read,base)
     if not map then return nil end
@@ -418,7 +446,7 @@ function Core.map_view(read,base,width,height)
         assert(math.abs(v)<100000,'map value out of range');return v
     end
     local view={origin_x=value(0),origin_y=value(4),pan_x=value(0x10),pan_y=value(0x14),
-        scale=value(0x28),cx=value(0x9c),cy=value(0xa0),radius=value(0xa4),map_address=map,width=width,height=height}
+        scale=value(0x28),cx=value(0x9c),cy=value(0xa0),radius=value(0xa4),map_address=map,ui_owner=root,width=width,height=height}
     -- 12f3cc7 reads the live setting; 12f3ccf multiplies it by 0.15 for
     -- hud_curve_amount. Optional read: failure preserves the flat projection.
     local curve_ok,curve=pcall(function()
@@ -672,7 +700,7 @@ function Core.choose_world(list,main,last)
 end
 if rawget(_G,'HD2OverlayTest') then return Core end
 if rawget(_G,'HD2TargetOverlay') then return end
-local state={version='1.3.3',frame=0,enabled=true,ids={},phase='starting',options={outposts=true,objectives=true,credits=true,black_boxes=true,medals=false}}
+local state={version='1.3.7',frame=0,ids={},phase='starting',options={outposts=true,objectives=true,credits=true,black_boxes=true,medals=false,refresh_hz=5,boost_hz=60}}
 _G.HD2TargetOverlay=state
 local function status(phase,message)
     if state.phase==phase and state.message==message then return end
@@ -717,8 +745,7 @@ local function init()
     -- Refuse while the previous rendering patch is still active. Never undo it here.
     for _,s in ipairs(ORIGINAL_SITES) do assert(read(base+s.rva,#s.bytes)==s.bytes,'Old rendering patch/conflicting code still active; disable it and restart') end
     sr=rawget(_G,'stingray') or rawget(_G,'s3d');assert(sr and sr.Gui and sr.World,'GUI API unavailable')
-    state.key=sr.Keyboard.button_id('f7')
-    status('READY','Overlay follows native minimap visibility; F7 enables/disables overlay')
+    status('READY','Overlay follows native minimap visibility; refresh rates are configurable in Mod Options Menu')
 end
 local function worlds()
     local list=sr.Application.worlds()
@@ -794,64 +821,64 @@ local function draw(rows,view,list)
     end
     state.draw_rows,state.draw_view=rows,view
 end
--- Spread native resource queries over separate display updates. Never catch up
--- missed deadlines or retry a failed snapshot every game frame.
+-- Complete a query round in one display update. Keep the two-second deadline
+-- and never catch up missed rounds or retry failures every game frame.
 local function collect_rows(list,main,now)
-    local job=state.query
-    if not job then
-        if now<(state.next_query or 0) then return end
-        job={stage=1,credits={},medals={},boxes={}};state.query=job
-        state.next_query=now+2
+    if now<(state.next_query or 0) then return end
+    state.next_query=now+2
+    local credit_ok,credits=true,{}
+    if state.options.credits then credit_ok,credits=pcall(Core.credit_positions,sr,list,main) end
+    state.credit_error=not credit_ok and tostring(credits) or nil
+    credits=credit_ok and credits or {};state.credit_count=#credits
+    local medal_ok,medals=true,{}
+    if state.options.medals then medal_ok,medals=pcall(Core.medal_positions,sr,list,main) end
+    state.medal_error=not medal_ok and tostring(medals) or nil
+    medals=medal_ok and medals or {};state.medal_count=#medals
+    local box_ok,boxes=true,{}
+    if state.options.black_boxes then
+        box_ok,boxes=pcall(function()
+            return Core.unmarked_black_boxes(read,base,Core.black_box_positions(sr,list,main))
+        end)
     end
-    local stage=job.stage
-    if stage==1 then
-        local ok,value=true,{}
-        if state.options.credits then ok,value=pcall(Core.credit_positions,sr,list,main) end
-        state.credit_error=not ok and tostring(value) or nil
-        job.credits=ok and value or {};state.credit_count=#job.credits
-    elseif stage==2 then
-        local ok,value=true,{}
-        if state.options.medals then ok,value=pcall(Core.medal_positions,sr,list,main) end
-        state.medal_error=not ok and tostring(value) or nil
-        job.medals=ok and value or {};state.medal_count=#job.medals
-    elseif stage==3 then
-        local ok,value=true,{}
-        if state.options.black_boxes then
-            ok,value=pcall(function()
-                return Core.unmarked_black_boxes(read,base,Core.black_box_positions(sr,list,main))
-            end)
-        end
-        state.black_box_error=not ok and tostring(value) or nil
-        job.boxes=ok and value or {};state.black_box_count=#job.boxes
-    else
-        local ok,rows,errors=pcall(Core.mission_rows,read,base,job.credits,state.options,job.boxes,job.medals)
-        state.category_error=ok and errors~='' and errors or nil
-        state.snapshot_error=not ok and tostring(rows) or state.category_error
-        rows=ok and rows or {}
-        if not Core.same_rows(state.rows,rows) then state.rows=rows end
-        state.query=nil
-        return
-    end
-    job.stage=stage+1
+    state.black_box_error=not box_ok and tostring(boxes) or nil
+    boxes=box_ok and boxes or {};state.black_box_count=#boxes
+    local ok,rows,errors=pcall(Core.mission_rows,read,base,credits,state.options,boxes,medals)
+    state.category_error=ok and errors~='' and errors or nil
+    state.snapshot_error=not ok and tostring(rows) or state.category_error
+    rows=ok and rows or {}
+    if not Core.same_rows(state.rows,rows) then state.rows=rows end
 end
 local function reset_queries()
-    state.rows,state.query,state.next_query=nil,nil,nil
+    state.rows,state.next_query=nil,nil
     state.query_world,state.query_map,state.query_options=nil,nil,nil
+end
+local function observe_map(map,scale,now)
+    if map~=state.observed_map or scale~=state.observed_scale then
+        state.fast_until=now+0.5
+        state.observed_map,state.observed_scale=map,scale
+        return true
+    end
+    return false
+end
+local function reset_interaction()
+    state.observed_map,state.observed_scale,state.fast_until=nil,nil,nil
 end
 local function refresh(now)
     now=now or clock()
     local list=worlds()
-    if not state.enabled then clear(list);reset_queries();status('HIDDEN','F7 enables overlay');return end
     local width,height=sr.Gui.resolution()
     assert(type(width)=='number' and type(height)=='number' and width>0 and height>0,'invalid screen size')
     local valid,view=pcall(Core.map_view,read,base,width,height)
     if not valid or not view then
         clear(list)
         reset_queries()
+        if valid then observe_map(nil,nil,now) else reset_interaction() end
         local detail=not valid and tostring(view) or 'Native minimap closed or HUD hidden'
         status('MAP_HIDDEN',detail)
         return
     end
+    state.map_owner=view.ui_owner
+    observe_map(view.map_address,view.scale,now)
     local main=sr.Application.main_world()
     local options=Core.options_key(state.options)
     if state.query_world~=main or state.query_map~=view.map_address or state.query_options~=options then
@@ -880,26 +907,40 @@ local function tick()
         if coroutine.status(worker)=='dead' then worker=nil;install_render_tracking() end
         return
     end
-    local down=sr.Keyboard.button(state.key)
-    down=down==true or (type(down)=='number' and down>0)
-    local toggled=down and not state.down
-    if toggled then state.enabled=not state.enabled end
-    state.down=down
-    if not state.enabled and not toggled then return end
     local now=clock()
-    if toggled or now>=(state.next_display or 0) then
-        state.next_display=now+0.2
+    local closing=false
+    if #state.ids>0 then
+        local ok,opened=pcall(Core.map_is_open,read,base,state.query_map,state.map_owner)
+        if not ok or not opened then
+            clear(worlds());reset_queries();observe_map(nil,nil,now)
+            closing=true
+        end
+    end
+    local due=closing or now>=(state.next_display or 0)
+    if not due and now>=(state.next_visibility or 0) then
+        -- Reuse the bounded visibility header to detect opening and zoom,
+        -- even when no icons exist. No model queries or projection here.
+        state.next_visibility=now+0.1
+        local ok,map,head=pcall(Core.map_gate,read,base)
+        if not ok then
+            clear(worlds());reset_queries();reset_interaction()
+            status('MAP_HIDDEN','Native minimap unavailable')
+        elseif not map then
+            clear(worlds());reset_queries()
+            due=observe_map(nil,nil,now)
+            status('MAP_HIDDEN','Native minimap closed or HUD hidden')
+        else
+            if map~=state.query_map then clear(worlds());reset_queries() end
+            local scale=f32(head,0x28)
+            if scale and scale>0 and scale<100 then due=observe_map(map,scale,now) end
+        end
+    end
+    if due then
         state.next_visibility=now+0.1
         refresh(now)
-    elseif #state.ids>0 and now>=(state.next_visibility or 0) then
-        -- Cheap visibility-only check between slower display updates. No
-        -- transforms, model queries, projection or rectangle traversal.
-        state.next_visibility=now+0.1
-        local ok,map=pcall(Core.map_gate,read,base)
-        if not ok or not map or map~=state.query_map then
-            clear(worlds());reset_queries()
-            status('MAP_HIDDEN','Native minimap closed or HUD changed')
-        end
+        local interval=Core.display_interval(state,now)
+        state.next_display=now+interval
+        if now<(state.fast_until or 0) then state.next_display=math.min(state.next_display,state.fast_until) end
     end
 end
 local function overlay_update()

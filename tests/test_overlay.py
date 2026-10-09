@@ -254,15 +254,15 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(self.core[b'choose_world'](worlds,1,3),3)
         self.assertEqual(self.core[b'choose_world'](worlds,1,1),1)
         self.assertEqual(self.core[b'choose_world'](worlds,1,4),2)
-    def map_fixture(self,opened=True,modal=False,nan=False,race=False):
+    def map_fixture(self,opened=True,modal=False,nan=False,race=False,scale=2,closing=False):
         owner=0x100000;hud=owner+0x24e340;address=hud+0x1a0e28
         memory={0x346d538:struct.pack('<Q',owner),hud+0x58:b'\1',hud+0x21f5b0:b'\1',
                 0x3326340:struct.pack('<Q',0x200000),0x200000+0xac21c:struct.pack('<I',4),
                 0x347ce28:struct.pack('<Q',0x300000),0x300000+0x4294:struct.pack('<II',int(modal),0)}
         head=bytearray(0xc8)
-        for at,v in [(0,100),(4,200),(0x10,10),(0x14,-20),(0x28,2),(0x9c,800),(0xa0,500),(0xa4,200)]:
+        for at,v in [(0,100),(4,200),(0x10,10),(0x14,-20),(0x28,scale),(0x9c,800),(0xa0,500),(0xa4,200)]:
             struct.pack_into('<f',head,at,float('nan') if nan and at==0x28 else v)
-        struct.pack_into('<I',head,0x70,400);head[0x74]=1;head[0x75]=int(opened)
+        struct.pack_into('<I',head,0x70,400);head[0x74]=1;head[0x75]=int(opened and not closing)
         memory[address+0x120]=bytes(head)
         matrix=bytearray(0xa0)
         # Parent matrix origin is the lower-left; native markers anchor at
@@ -273,11 +273,21 @@ class OverlayTests(unittest.TestCase):
         def read(at,n):
             calls[at]=calls.get(at,0)+1
             if race and at==0x346d538 and calls[at]>1:return struct.pack('<Q',owner+8)
+            if at==address+0x195 and n==1:return memory[address+0x120][0x75:0x76]
             blob=memory.get(at);return blob[:n] if blob and len(blob)>=n else None
         return self.lua.eval(b'function(f)return function(...)return f(...)end end')(read)
     def test_native_close_and_modal_hide(self):
         for fixture in [self.map_fixture(opened=False),self.map_fixture(modal=True)]:
             self.assertIsNone(self.core[b'map_view'](fixture,0,1920,1080))
+    def test_native_closing_intent_hides_while_widget_stays_visible(self):
+        opened=self.map_fixture()
+        view=self.core[b'map_view'](opened,0,1920,1080)
+        self.assertTrue(self.core[b'map_is_open'](opened,0,view[b'map_address'],view[b'ui_owner']))
+        closing=self.map_fixture(closing=True)
+        self.assertIsNone(self.core[b'map_view'](closing,0,1920,1080))
+        self.assertFalse(self.core[b'map_is_open'](closing,0,view[b'map_address'],view[b'ui_owner']))
+        self.assertFalse(self.core[b'map_is_open'](opened,0,view[b'map_address'],b'wrong owner'))
+        self.assertFalse(self.core[b'map_is_open'](self.lua.eval(b'function()return nil end'),0,view[b'map_address'],view[b'ui_owner']))
     def test_native_projection_pan_scale_and_clip(self):
         view=self.core[b'map_view'](self.map_fixture(),0,1920,1080)
         rows=self.lua.table_from([self.lua.table_from({b'x':100,b'y':200,b'kind':b'marker'}),

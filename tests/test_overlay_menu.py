@@ -36,21 +36,22 @@ class OverlayMenuTests(unittest.TestCase):
 
     def test_real_api_registration_chinese_labels_saved_values_and_apply(self):
         saved=Path(self.temp.name)/'ModOptionsMenu.values'
-        saved.write_text('astla.target_overlay.outposts\tfalse\n',encoding='utf-8')
+        saved.write_text('astla.target_overlay.outposts\tfalse\nastla.target_overlay.boost_hz\t30\n',encoding='utf-8')
         menu=self.load_menu()
         self.core[b'menu_step'](self.state,menu)
         self.assertFalse(self.state[b'options'][b'outposts'])
         self.assertFalse(self.state[b'options'][b'medals'])
         self.assertTrue(self.state[b'options'][b'objectives'])
+        self.assertEqual(self.state[b'options'][b'boost_hz'],30)  # New defaults do not override saved preferences.
         self.assertIsNone(self.state[b'rows'])
         native=self.find(menu[b'register_option'],b'state')
-        self.assertEqual(native[b'option_count'],5)
+        self.assertEqual(native[b'option_count'],7)
         for i,label in enumerate(['标记虫巢','标记支线','标记蓝币','标记黑匣子','标记勋章'],1):
             spec=self.core[b'option_specs'][i]
             self.assertEqual(native[b'options'][spec[b'id']][b'label'],label.encode())
             self.assertEqual(len(native[b'callbacks'][spec[b'id']]),1)
         for _ in range(120):self.core[b'menu_step'](self.state,menu)
-        self.assertEqual(native[b'option_count'],5)
+        self.assertEqual(native[b'option_count'],7)
         self.assertEqual(len(native[b'callbacks'][b'astla.target_overlay.outposts']),1)
         pending=self.find(menu[b'set'],b'set_pending')
         apply=self.find(self.lua.globals()[b'update'],b'apply_pending')
@@ -94,14 +95,58 @@ class OverlayMenuTests(unittest.TestCase):
             self.core[b'menu_step'](self.state,menu)
         self.assertTrue(all(self.state[b'options'][key] for key in [b'outposts',b'objectives',b'credits',b'black_boxes']))
         self.core[b'menu_step'](self.state,self.load_menu())
-        self.assertEqual(len(list(self.state[b'option_links'].keys())),5)
+        self.assertEqual(len(list(self.state[b'option_links'].keys())),7)
 
     def test_registration_rejection_or_exception_is_bounded(self):
         for body in (b"return false,'capacity'",b"error('menu failure')"):
             menu=self.lua.execute(b"local calls=0;return {api=1,register_option=function()calls=calls+1;"+body+b" end,get=function()error('unregistered')end,on_change=function()error('unregistered')end,calls=function()return calls end}")
             for _ in range(100):self.core[b'menu_step'](self.state,menu)
-            self.assertEqual(menu[b'calls'](),5)
+            self.assertEqual(menu[b'calls'](),7)
             self.assertTrue(all(self.state[b'options'][key] for key in [b'outposts',b'objectives',b'credits',b'black_boxes']))
             self.assertIsNotNone(self.state[b'options_error'])
+
+    def test_refresh_sliders_real_api_apply_save_and_restart(self):
+        menu=self.load_menu();self.core[b'menu_step'](self.state,menu)
+        native=self.find(menu[b'register_option'],b'state')
+        self.assertEqual(self.state[b'options'][b'refresh_hz'],5)
+        self.assertEqual(self.state[b'options'][b'boost_hz'],60)
+        for spec in self.core[b'rate_specs'].values():
+            registered=native[b'options'][spec[b'id']]
+            self.assertEqual(registered[b'kind'],b'slider')
+            self.assertEqual((registered[b'min'],registered[b'max'],registered[b'step']),(1,spec[b'max'],1))
+        pending=self.find(menu[b'set'],b'set_pending')
+        apply=self.find(self.lua.globals()[b'update'],b'apply_pending')
+        rows=self.lua.table();self.state[b'rows']=rows
+        pending(b'astla.target_overlay.refresh_hz',1)
+        pending(b'astla.target_overlay.boost_hz',40)
+        self.core[b'menu_step'](self.state,menu)
+        self.assertEqual(self.state[b'options'][b'refresh_hz'],5)
+        self.assertEqual(apply(),2)
+        self.assertEqual(self.state[b'options'][b'refresh_hz'],1)
+        self.assertEqual(self.state[b'options'][b'boost_hz'],40)
+        self.assertTrue(self.lua.eval(b'function(a,b)return rawequal(a,b)end')(rows,self.state[b'rows']))
+        self.assertEqual(self.state[b'next_display'],0)
+        saved=(Path(self.temp.name)/'ModOptionsMenu.values').read_text()
+        self.assertIn('astla.target_overlay.refresh_hz\t1',saved)
+        self.assertIn('astla.target_overlay.boost_hz\t40',saved)
+        restarted=self.lua.execute(b'return {options={}}')
+        self.core[b'menu_step'](restarted,self.load_menu())
+        self.assertEqual(restarted[b'options'][b'refresh_hz'],1)
+        self.assertEqual(restarted[b'options'][b'boost_hz'],40)
+
+    def test_refresh_sliders_programmatic_values_and_invalid_callback(self):
+        menu=self.load_menu();self.core[b'menu_step'](self.state,menu)
+        native=self.find(menu[b'register_option'],b'state')
+        for key in (b'refresh_hz',b'boost_hz'):
+            ident=b'astla.target_overlay.'+key
+            maximum=120 if key==b'boost_hz' else 60
+            for value in (1,17,maximum):
+                self.assertTrue(menu[b'set'](ident,value))
+                self.core[b'menu_step'](self.state,menu)
+                self.assertEqual(self.state[b'options'][key],value)
+            callback=native[b'callbacks'][ident][1]
+            for invalid in (0,maximum+1,-1,2.5,float('nan'),float('inf'),True,b'10'):
+                callback(invalid)
+                self.assertEqual(self.state[b'options'][key],maximum)
 
 if __name__=='__main__':unittest.main()

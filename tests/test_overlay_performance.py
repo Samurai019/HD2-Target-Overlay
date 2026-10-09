@@ -104,7 +104,7 @@ class OverlayPerformanceTests(ReleaseRuntimeTests):
         api[b'Application'][b'worlds'] = self.lua.eval(b'function()return {2}end')
         api[b'Application'][b'main_world'] = self.lua.eval(b'function()return 2 end')
         tick()
-        self.assertIsNone(state[b'rows'])  # Never display previous-world targets.
+        self.assertEqual(len(state[b'rows']),0)  # New world has no validated targets in this fixture.
         state[b'query']=None;state[b'next_query']=1e30;state[b'rows']=rows
         tick()
         self.assertEqual(state[b'world'], 2)
