@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/CowboyBingus/ModOptionsMenu",
+  "commit": "fd0160807b6cc75c2eeb74dbf9793a3c5d30deb6",
+  "files": {
+    "options.lua": "b9ae5626505565f4568fecaf8d6ca85d3d920268554a81333aad8ff4759fe0a2",
+    "api.lua": "dcd771d5fcbe25a1feccca3c74d28e4bfd09a40707342bf7cd57b97612a0746d",
+    "bingus_text.lua": "809317276a882faba92d10481ffba3888ffb9d14635e794a84777f1051c3152b"
+  }
+}

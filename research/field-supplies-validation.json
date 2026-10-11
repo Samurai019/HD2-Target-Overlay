@@ -1,0 +1,11 @@
+{
+  "version": "1.4.0",
+  "runtime": "Lupa Lua 5.1 (macOS)",
+  "tests_passed": 97,
+  "windows_ffi_tested": false,
+  "in_game_tested": false,
+  "deployed": false,
+  "source_sha256": "21feedf782dce00c6228d8a41cb84da68aa09b24369fd3dfba76de5385f73a53",
+  "zip_sha256": "15c18b941a93871738912d7e82bf6daff2f1b13090bfa3e7e77c1ede822b80fe",
+  "menu_fixture": "field-supplies-menu-fixture.json"
+}

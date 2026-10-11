@@ -20,3 +20,6 @@ venv/
 
 # Extracted black-box model research (node fixture is kept in tests)
 /research/black-box/
+
+# Pinned menu API fixture for field-supply tests
+/research/ModOptionsMenu-v1.2/

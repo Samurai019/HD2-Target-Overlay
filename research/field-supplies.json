@@ -1,0 +1,62 @@
+{
+  "filediver_commit": "bf0ce329db3cf0043994eb717ea86433c303cb36",
+  "typelib_sha256": "4d04870d0a0d4dc1284998c72cdfa6f8ff6d21aba0e36b6f758c6f73dd0417a4",
+  "entities_sha256": "21377252b81fdbc670eba1e59a8ab64b170323df208f175e708992e4c1fb515e",
+  "supplies": [
+    {
+      "category": "ammo",
+      "entity": "79ccffd281e3f3a9",
+      "model": "79ccffd281e3f3a9",
+      "path": "content/fac_helldivers/discoverables/ammo_box_discoverable_01/ammo_box_discoverable_01",
+      "node": "StingrayEntityRoot",
+      "node_hash": "4a182741",
+      "interact_type": 4,
+      "start_enabled": true,
+      "delete_after_interact": true,
+      "model_consumers": [
+        {
+          "entity": "79ccffd281e3f3a9",
+          "start_enabled": true
+        }
+      ]
+    },
+    {
+      "category": "grenades",
+      "entity": "97af34fbf093409c",
+      "model": "97af34fbf093409c",
+      "path": "content/fac_helldivers/discoverables/grenade_box_discoverable_01/grenade_box_discoverable_01",
+      "node": "StingrayEntityRoot",
+      "node_hash": "4a182741",
+      "interact_type": 6,
+      "start_enabled": true,
+      "delete_after_interact": true,
+      "model_consumers": [
+        {
+          "entity": "97af34fbf093409c",
+          "start_enabled": true
+        }
+      ]
+    },
+    {
+      "category": "stims",
+      "entity": "b4ca4c5b922f7965",
+      "model": "b4ca4c5b922f7965",
+      "path": "content/fac_helldivers/discoverables/health_pack_discoverable_01/health_pack_discoverable_01",
+      "node": "StingrayEntityRoot",
+      "node_hash": "4a182741",
+      "interact_type": 5,
+      "start_enabled": true,
+      "delete_after_interact": true,
+      "model_consumers": [
+        {
+          "entity": "b4ca4c5b922f7965",
+          "start_enabled": true
+        },
+        {
+          "entity": "02d9d0ad53ceb9df",
+          "start_enabled": false
+        }
+      ]
+    }
+  ]
+}

@@ -134,9 +134,9 @@ function Core.classify(read,base,rows,identity)
     Core.classify_pois(read,base,rows,identity)
     return rows
 end
-function Core.mission_rows(read,base,credits,options,black_boxes,medals)
+function Core.mission_rows(read,base,credits,options,black_boxes,medals,supplies)
     if options and not options.objectives and not options.outposts then
-        return Core.filter({},credits,{},options,black_boxes,medals),''
+        return Core.filter({},credits,{},options,black_boxes,medals,supplies),''
     end
     local rows,identity=Core.snapshot(read,base,true)
     local errors={}
@@ -149,7 +149,7 @@ function Core.mission_rows(read,base,credits,options,black_boxes,medals)
     if not options or options.outposts then post_ok,posts,post_errors=pcall(Core.outposts,read,base) end
     if not post_ok then errors[#errors+1]='OUTPOST: '..tostring(posts);posts={} end
     if post_ok and post_errors and post_errors~='' then errors[#errors+1]='OUTPOST: '..post_errors end
-    return Core.filter(rows,credits,posts,options,black_boxes,medals),table.concat(errors,'\n')
+    return Core.filter(rows,credits,posts,options,black_boxes,medals,supplies),table.concat(errors,'\n')
 end
 function Core.outpost_types(read,base)
     -- +0x2a0 is a byte, so at most 256 entries are addressable. The supported
@@ -226,7 +226,7 @@ function Core.model_positions(api,list,main,resource_hex,position_node)
         assert(type(units)=='table','resource query unavailable')
         local count=0
         for _,unit in pairs(units) do
-            count=count+1;assert(count<=128,'too many model units')
+            count=count+1;assert(count<=(position_node and position_node.max_units or 128),'too many model units')
             if not seen[unit] and api.Unit.alive(unit) then
                 seen[unit]=true
                 local root=api.Unit.world_position(unit,0)
@@ -250,10 +250,11 @@ function Core.model_positions(api,list,main,resource_hex,position_node)
                     -- Observed three distinct units returning zero root positions.
                     -- A nearby bind-pose interaction offset does not resolve that ambiguity.
                     local unresolved=rx==0 and ry==0 and (rz==nil or rz==0) and x*x+y*y<1
-                    -- Carryable black boxes have a named mesh node, no interact
-                    -- node. Never publish their unresolved root/default XY.
+                    -- Black boxes require a resolved mesh node. Field supplies
+                    -- use StingrayEntityRoot, which may legitimately be node 0.
                     if position_node then
-                        unresolved=node==0 or x*x+y*y<0.0001 or (rx==0 and ry==0 and x*x+y*y<1)
+                        unresolved=(node==0 and not position_node.allow_root) or x*x+y*y<0.0001 or
+                            (rx==0 and ry==0 and x*x+y*y<1)
                     end
                     local selected=gameplay and not unresolved
                     if selected then points[#points+1]={x=x,y=y} end
@@ -270,6 +271,32 @@ end
 function Core.medal_positions(api,list,main)
     -- ExplorationReward medals entity 147bd99513726f88 -> Unit model.
     return Core.model_positions(api,list,main,'773c4184e4bad0df')
+end
+-- UnitComponent + InteractableComponent evidence: research/FIELD_SUPPLIES.md.
+-- Exact discoverable models; no decorative crates, hellpods or supply packs.
+Core.supply_specs={
+    {key='ammo',model='79ccffd281e3f3a9'},
+    {key='grenades',model='97af34fbf093409c'},
+    {key='stims',model='b4ca4c5b922f7965'}
+}
+function Core.supply_positions(api,list,main,model)
+    -- Never query auxiliary worlds when the gameplay world is unavailable.
+    if main==nil then return {} end
+    return Core.model_positions(api,list,main,model,
+        {hex='4a182741',name='StingrayEntityRoot',allow_root=true,max_units=512})
+end
+function Core.collect_supplies(state,api,list,main)
+    local supplies={}
+    for _,spec in ipairs(Core.supply_specs) do
+        local ok,points=true,{}
+        if state.options[spec.key] then
+            ok,points=pcall(Core.supply_positions,api,list,main,spec.model)
+        end
+        state[spec.key..'_error']=not ok and tostring(points) or nil
+        supplies[spec.key]=ok and points or {}
+        state[spec.key..'_count']=#supplies[spec.key]
+    end
+    return supplies
 end
 function Core.black_box_positions(api,list,main)
     -- UnitComponent data maps the carryable entities to this model resource.
@@ -316,8 +343,8 @@ function Core.keep_location(row)
     if row.kind=='outpost' then return row.counts_as_outpost~=false and not row.completed end
     return not row.discovered
 end
-function Core.filter(rows,credits,outposts,options,black_boxes,medals)
-    options=options or {outposts=true,objectives=true,credits=true,black_boxes=true,medals=false}
+function Core.filter(rows,credits,outposts,options,black_boxes,medals,supplies)
+    options=options or {outposts=true,objectives=true,credits=true,black_boxes=true,medals=false,ammo=true,grenades=true,stims=true}
     local selected={}
     for _,row in ipairs(rows) do
         if options.objectives and row.kind=='objective' and row.importance==3 and Core.keep_location(row)
@@ -341,6 +368,11 @@ function Core.filter(rows,credits,outposts,options,black_boxes,medals)
     for _,box in ipairs(options.black_boxes and black_boxes or {}) do
         selected[#selected+1]={x=box.x,y=box.y,kind='black_box'}
     end
+    for _,spec in ipairs(Core.supply_specs) do
+        for _,box in ipairs(options[spec.key] and supplies and supplies[spec.key] or {}) do
+            selected[#selected+1]={x=box.x,y=box.y,kind=spec.key}
+        end
+    end
     for _,row in ipairs(options.outposts and outposts or {}) do if Core.keep_location(row) then selected[#selected+1]=row end end
     return selected
 end
@@ -355,7 +387,13 @@ Core.option_specs={
     {key='black_boxes',id='astla.target_overlay.black_boxes',label='标记黑匣子',
         description='用黄色空心菱形标记已加载且原版尚未标记的主线黑匣子。首次拾取后由原版标记接管，黄色标记撤销。'},
     {key='medals',id='astla.target_overlay.medals',label='标记勋章',default=false,
-        description='用金色八边形与蓝色绶带奖章标记已加载的勋章（Medal）。拾取后撤销，默认关闭。'}
+        description='用金色八边形与蓝色绶带奖章标记已加载的勋章（Medal）。拾取后撤销，默认关闭。'},
+    {key='ammo',id='astla.target_overlay.ammo',label='标记野外弹药盒',
+        description='用黄色弹药图标标记已加载的野外弹药盒。拾取后撤销，不包含空投补给或装饰箱。'},
+    {key='grenades',id='astla.target_overlay.grenades',label='标记野外手雷盒',
+        description='用橙色手雷图标标记已加载的野外手雷盒。拾取后撤销。'},
+    {key='stims',id='astla.target_overlay.stims',label='标记野外治疗剂盒',
+        description='用绿色十字标记已加载的野外治疗剂盒。拾取后撤销。'}
 }
 Core.rate_specs={
     {key='refresh_hz',id='astla.target_overlay.refresh_hz',type='slider',label='刷新频率（次/秒）',default=5,max=60,
@@ -509,6 +547,9 @@ function Core.map_project(rows,view)
     return out
 end
 function Core.marker_color(p)
+    if p.kind=='ammo' then return {255,255,230,110} end
+    if p.kind=='grenades' then return {255,255,150,65} end
+    if p.kind=='stims' then return {255,85,235,150} end
     if p.kind=='medal' then return {255,255,165,50} end
     if p.kind=='black_box' then return {255,255,210,45} end
     if p.kind=='credit_poi' then return {255,45,120,255} end
@@ -518,6 +559,24 @@ function Core.marker_color(p)
 end
 -- Rasterize hollow polygons using the established rectangle GUI API.
 function Core.glyph(kind,size,thickness,step)
+    -- Filled, distinct silhouettes remain readable at minimap scale. Both
+    -- outline and symbol passes use these shapes through the existing cache.
+    if kind=='ammo' or kind=='grenades' or kind=='stims' then
+        local shapes
+        if kind=='ammo' then
+            shapes={{-.43,-.4,.22,.58},{-.38,.18,.12,.18},
+                {-.11,-.4,.22,.7},{-.06,.3,.12,.18},
+                {.21,-.4,.22,.58},{.26,.18,.12,.18}}
+        elseif kind=='grenades' then
+            shapes={{-.28,-.4,.56,.6},{-.18,-.5,.36,.1},
+                {-.18,.2,.36,.1},{-.12,.3,.24,.17},{.12,.33,.25,.09},{.28,.08,.09,.25}}
+        else
+            shapes={{-.15,-.48,.3,.96},{-.48,-.15,.33,.3},{.15,-.15,.33,.3}}
+        end
+        local parts={}
+        for _,r in ipairs(shapes) do parts[#parts+1]={r[1]*size,r[2]*size,r[3]*size,r[4]*size} end
+        return parts
+    end
     local count=kind=='outpost' and 6 or (kind=='credit_poi' and 3 or 4)
     local vertices={}
     if kind=='medal' then
@@ -700,7 +759,7 @@ function Core.choose_world(list,main,last)
 end
 if rawget(_G,'HD2OverlayTest') then return Core end
 if rawget(_G,'HD2TargetOverlay') then return end
-local state={version='1.3.7',frame=0,ids={},phase='starting',options={outposts=true,objectives=true,credits=true,black_boxes=true,medals=false,refresh_hz=5,boost_hz=60}}
+local state={version='1.4.0',frame=0,ids={},phase='starting',options={outposts=true,objectives=true,credits=true,black_boxes=true,medals=false,ammo=true,grenades=true,stims=true,refresh_hz=5,boost_hz=60}}
 _G.HD2TargetOverlay=state
 local function status(phase,message)
     if state.phase==phase and state.message==message then return end
@@ -842,10 +901,12 @@ local function collect_rows(list,main,now)
     end
     state.black_box_error=not box_ok and tostring(boxes) or nil
     boxes=box_ok and boxes or {};state.black_box_count=#boxes
-    local ok,rows,errors=pcall(Core.mission_rows,read,base,credits,state.options,boxes,medals)
+    local supplies=Core.collect_supplies(state,sr,list,main)
+    local ok,rows,errors=pcall(Core.mission_rows,read,base,credits,state.options,boxes,medals,supplies)
     state.category_error=ok and errors~='' and errors or nil
     state.snapshot_error=not ok and tostring(rows) or state.category_error
-    rows=ok and rows or {}
+    -- Mission-table failure must not erase independently located pickups.
+    rows=ok and rows or Core.filter({},credits,{},state.options,boxes,medals,supplies)
     if not Core.same_rows(state.rows,rows) then state.rows=rows end
 end
 local function reset_queries()
